@@ -5,18 +5,27 @@ import 'package:flutter/material.dart';
 
 import 'api.dart';
 import 'demo.dart';
+import 'browser_mode.dart' if (dart.library.js_interop) 'browser_mode_web.dart';
 import 'screens.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    CommuteApp(api: const bool.fromEnvironment('DEMO') ? DemoApi() : Api()),
+    CommuteApp(
+      api: const bool.fromEnvironment('DEMO') ? DemoApi() : Api(),
+      preventRootExit: isStandaloneWebApp,
+    ),
   );
 }
 
 class CommuteApp extends StatefulWidget {
   final Api api;
-  const CommuteApp({super.key, required this.api});
+  final bool preventRootExit;
+  const CommuteApp({
+    super.key,
+    required this.api,
+    this.preventRootExit = false,
+  });
   @override
   State<CommuteApp> createState() => _CommuteAppState();
 }
@@ -62,18 +71,23 @@ class _CommuteAppState extends State<CommuteApp> {
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
     debugShowCheckedModeBanner: false,
     theme: commuteTheme(),
-    home: loading
-        ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-        : error != null
-        ? Scaffold(body: Center(child: ErrorNotice(error!, restore)))
-        : signedIn
-        ? HomeScreen(
-            api: widget.api,
-            onLogout: () => setState(() => signedIn = false),
-          )
-        : AuthScreen(
-            api: widget.api,
-            onSuccess: () => setState(() => signedIn = true),
-          ),
+    // A home-screen web app has no browser page to return to. Let nested
+    // routes pop normally, but never ask WebKit to exit the root document.
+    home: PopScope(
+      canPop: !widget.preventRootExit,
+      child: loading
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          : error != null
+          ? Scaffold(body: Center(child: ErrorNotice(error!, restore)))
+          : signedIn
+          ? HomeScreen(
+              api: widget.api,
+              onLogout: () => setState(() => signedIn = false),
+            )
+          : AuthScreen(
+              api: widget.api,
+              onSuccess: () => setState(() => signedIn = true),
+            ),
+    ),
   );
 }

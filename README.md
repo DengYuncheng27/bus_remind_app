@@ -139,6 +139,8 @@ flutter build apk --release --target-platform android-arm64
 
 网页构建使用本地 CanvasKit 资源，减少运行时对第三方 CDN 的依赖。iPhone 的真实锁屏通知仍需用户在设备上授权并验证收达，推送平台接受不等于手机已经收到。
 
+主屏幕网页版会保留根页面：在登录页或三个主 Tab 上返回不会退出到空白网页，子页面仍逐层返回。iPhone/iPad 安装模式下由 Flutter 处理边缘返回手势，避免与 WebKit 的历史滑动同时触发；普通 Safari 标签页和原生客户端保留各自的返回行为。导航回归检查：`flutter test test/standalone_navigation_test.dart` 和 `node --test tool/navigation.test.mjs`。WebKit 模拟不能代替真机主屏幕手势验收。
+
 ## 0.3.0：邮箱验证码注册与找回密码
 
 创建账号时先获取 6 位邮箱验证码，再设置并确认密码。验证码 10 分钟有效，60 秒后可重发；修改邮箱会清除当前验证步骤。登录页提供「忘记密码」，重置后重新登录，其他旧会话同时失效。
