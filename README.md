@@ -1,6 +1,6 @@
 # 下班王 Flutter 客户端
 
-Android / iOS 共用客户端；Web 用于界面预览和接口联调。
+Android / iOS 共用客户端；Web 是正式用户入口，支持添加到主屏幕和网页推送。
 
 客户端仓库：[bus_remind_app](https://github.com/DengYuncheng27/bus_remind_app)。后端与 React 网页管理端独立维护于 [BusReminder](https://github.com/DengYuncheng27/BusReminder)，本仓库只通过 HTTP API 与后端通信。
 
@@ -68,7 +68,7 @@ flutter run --dart-define=API_BASE_URL=https://bus.su7.space --dart-define=JPUSH
 - Android 国内厂商离线推送还需配置对应厂商应用与 SDK 通道；当前只有极光基础接入，不能承诺所有手机被杀进程后仍能收到。
 - iOS 必须在 macOS/Xcode 中配置开发者团队、Provisioning Profile、Push Notifications，并在极光后台上传对应 APNs 凭据。`Runner.entitlements` 默认开发环境；发布需核对生产 APNs 签名及两端 production 参数。
 - `ios/Podfile` 配置 no-IDFA JCore 与通知权限宏。首次 iOS 构建使用 CocoaPods 路径，按 Flutter 环境需要执行 `flutter config --no-enable-swift-package-manager` 后 `flutter pub get`、`pod install`。平台插件本次尚未在 macOS 上编译验证。
-- Android 当前保留 Flutter 模板的 debug 签名，仅供开发，正式发布前替换发布签名。启动图标也仍为开发占位资源。
+- Android 发行构建使用独立 release 签名，通过忽略的 `android/key.properties` 注入。务必备份并复用签名文件以支持覆盖升级。
 
 参考：[极光 Flutter 插件](https://pub.dev/packages/jpush_flutter)、[推送 API](https://docs.jiguang.cn/jpush/server/push/rest_api_v3_push)。
 
@@ -81,7 +81,7 @@ python -m unittest discover -s tool -p test_serve_web.py
 flutter build web --dart-define=API_BASE_URL=https://bus.su7.space --dart-define=LOCAL_API_PROXY=true
 ```
 
-当前机器有 Flutter 和浏览器，但缺少完整 Android SDK（cmdline-tools / 编译组件），也没有 macOS/Xcode。Web 构建、Dart 分析、自动化测试和浏览器交互已验证；APK/IPA 打包、后台/锁屏/杀进程通知、通知点击冷启动需要配置后真机验证。尚未部署或上架。
+Web/PWA 和 Android ARM64 release APK 已可在本机构建；Dart 分析、自动化测试、浏览器流程与 APK 签名已验证。本机没有连接 Android 真机，也没有 macOS/Xcode；iOS 原生包、后台/锁屏/杀进程通知仍需相应真机环境验证。
 
 ## 代码位置
 
@@ -94,7 +94,7 @@ flutter build web --dart-define=API_BASE_URL=https://bus.su7.space --dart-define
 
 手机端新建提醒统一使用自定义重复：每 1–52 周、选择星期、开始日期、可跳过法定节假日。间隔周规则使用已有后端接口，不需要新增排期字段或能力检查接口。
 
-已移除“全天”，手机端始终提交明确开始、结束时间，不能相同；结束早于开始时表示跨午夜。旧的每天/法定工作日规则在打开编辑时保持原样，只有确认自定义弹层后才替换。多渠道配置、复杂模板和管理功能继续由 Web 管理。
+已移除“全天”，手机端始终提交明确开始、结束时间，不能相同；结束早于开始时表示跨午夜。旧的每天/法定工作日规则在打开编辑时保持原样，只有确认自定义弹层后才替换。多渠道配置和通知模板现已迁入客户端“高级扩展”；用户、城市、邀请码和配额仍由独立 Web 管理后台维护。
 
 `flutter run -d chrome -t tool/repeat_preview.dart` 可单独检查重复弹层，不读取账号或公交数据。
 
@@ -109,3 +109,27 @@ flutter build web --dart-define=API_BASE_URL=https://bus.su7.space --dart-define
 - 新接口 `distanceSource: target-stop` 的 `distanceMeters` 才表示距上车站；`distanceToSc` 单独保留为 `nextStopDistanceMeters`，不能冒充距上车站。跨上车站共享的缓存也不会借用另一个站的距离。
 - 旧接口距离字段有歧义，客户端用车辆和校正后站点的坐标显示“直线约 X 米”，不冒充行驶里程；无坐标且无可信距离时明确显示暂未提供。服务端距离修正需部署后生效，地图和直线距离兼容现有服务。
 - 超过两分钟的快照显示“上次位置”，不继续展示实时预计分钟数。`tool/vehicle_preview.dart` 是独立的只读快照校验入口，需要在构建目录放置含 `route`、`realtime` 的 `transit-snapshot.json`，保留原始查询时间，不替换主入口的真实 API。
+
+
+## 0.2.0：可安装网页版与高级扩展
+
+- 用户主站：<https://bus.su7.space/>。iPhone 使用 Safari 添加到主屏幕，进入“我的 → 开启本机通知”，允许后发送测试。需要 iOS 16.4 或以上。
+- Android 安装包与安装说明：<https://bus.su7.space/download.html>。当前发行包为 ARM64，使用独立 release 签名。当前无极光应用凭据，原生通知尚未开通；可使用高级扩展或安装网页版接收 Web Push。
+- “我的 → 高级扩展”：支持钉钉、企业微信、飞书自建应用、Telegram、HTTPS Webhook；创建、编辑、启停、删除、测试与自定义模板。编辑凭证留空保留原值，服务器不回传密钥。
+- 提醒编辑的“接收渠道”可同时选择多个渠道；未修改接收渠道时不会覆盖原有绑定。
+- “我的 → 修改密码”更新账号密码并恢复当前会话。
+- 账号与旧提醒全部保留。React 管理后台独立位于 `/admin/`。
+
+通知实现：`lib/push.dart` 按平台选择 `push_native.dart` / `push_web.dart`。浏览器接口在 `web/web-push.js`，后台接收与点击跳转在 `web/sw.js`，保留根 scope 和旧 `/sw.js` 地址。页面恢复不申请权限、不静默转移账号订阅；只有明确点击才连接通知。自建 worker 不缓存 API 或账户数据。
+
+原生发行构建需在忽略的 `android/key.properties` 中提供 `storeFile`、`storePassword`、`keyAlias`、`keyPassword`，签名文件与凭据不得提交 Git。已有本机发布密钥应备份并持续复用，以便覆盖升级。
+
+```sh
+flutter analyze
+flutter test
+node --test tool/web_push.test.mjs
+flutter build web --no-web-resources-cdn --no-wasm-dry-run
+flutter build apk --release --target-platform android-arm64
+```
+
+网页构建使用本地 CanvasKit 资源，减少运行时对第三方 CDN 的依赖。iPhone 的真实锁屏通知仍需用户在设备上授权并验证收达，推送平台接受不等于手机已经收到。

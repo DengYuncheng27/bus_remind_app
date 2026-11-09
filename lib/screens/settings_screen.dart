@@ -7,6 +7,10 @@ import '../ui.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../push.dart';
+import 'extensions_screen.dart';
+import 'password_screen.dart';
+
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends StatefulWidget {
   final Api api;
@@ -99,20 +103,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
         const Divider(height: 48),
-        const Text(
-          '手机通知',
+        Text(
+          widget.push.isWeb ? '本机网页通知' : '手机通知',
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 12),
         Text(
-          !widget.push.supported
-              ? '在 Android 或 iPhone 客户端连接通知，即可接收到站提醒。'
+          widget.push.unavailableReason != null
+              ? widget.push.unavailableReason ?? '当前设备不支持通知'
               : deviceId == null
-              ? '连接这台手机，在系统通知中接收公交提醒。'
+              ? widget.push.isWeb
+                    ? '连接后可在系统通知中收到提醒。iPhone 需先添加到主屏幕。'
+                    : '连接这台手机，在系统通知中接收公交提醒。'
               : '这台手机已登记。发送一条测试通知，检查能否收到。',
         ),
         const SizedBox(height: 12),
-        if (widget.push.supported)
+        if (widget.push.supported && !widget.push.isWeb)
           const Text(
             '开启后，极光推送服务会使用设备标识来发送通知。仅在你点击连接后初始化。',
             style: TextStyle(fontSize: 13, color: Color(0xFF66756C)),
@@ -120,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 24),
         if (widget.push.supported)
           FilledButton(
-            onPressed: busy
+            onPressed: busy || widget.push.unavailableReason != null
                 ? null
                 : () => action(() async {
                     final id = await widget.push.connect();
@@ -135,7 +141,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               busy
                   ? '请稍候…'
                   : deviceId == null
-                  ? '连接手机通知'
+                  ? widget.push.isWeb
+                        ? '开启本机通知'
+                        : '连接手机通知'
                   : '重新连接',
             ),
           ),
@@ -145,10 +153,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: busy
                 ? null
                 : () => action(() async {
-                    await widget.api.data(
-                      '/api/mobile-push/devices/$deviceId/test',
-                      method: 'POST',
-                    );
+                    await widget.push.test();
                     if (mounted) {
                       setState(() => message = '推送平台已接受，请检查手机是否收到通知。');
                     }
@@ -170,7 +175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Text('断开此手机通知'),
           ),
         ],
-        if (widget.push.supported)
+        if (widget.push.supported && !widget.push.isWeb)
           TextButton(
             onPressed: () => openAppSettings(),
             child: const Text('打开系统通知设置'),
@@ -181,7 +186,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Text(message!),
           ),
         const Divider(),
-        const Text('下班王 0.1.0', style: TextStyle(fontWeight: FontWeight.w700)),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.extension_outlined, color: green),
+          title: const Text('高级扩展'),
+          subtitle: const Text('钉钉、企业微信、飞书等推送渠道'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => ExtensionsScreen(api: widget.api),
+            ),
+          ),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.lock_outline, color: green),
+          title: const Text('修改密码'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => PasswordScreen(api: widget.api),
+            ),
+          ),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.install_mobile_outlined, color: green),
+          title: const Text('安装与下载'),
+          subtitle: const Text('iPhone 添加到主屏幕 · Android 安装包'),
+          trailing: const Icon(Icons.open_in_new),
+          onTap: () => launchUrl(
+            Uri.parse('https://bus.su7.space/download.html'),
+            mode: LaunchMode.externalApplication,
+          ),
+        ),
+        const Divider(height: 32),
+        const Text('下班王 0.2.0', style: TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
         const Text(
           '所有提醒时段均按北京时间执行。\n车辆位置与预计到达时间来自公交数据服务。',

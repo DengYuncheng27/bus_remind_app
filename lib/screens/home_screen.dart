@@ -29,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int directionRevision = 0;
   String? selectedId, account, error, vehicleError, pushIssue;
   int tab = 0, requestRevision = 0;
+  int? pendingPushReminder;
   bool loading = false, refreshing = false, foreground = true;
   Timer? clock;
   Future<void> preferenceWrite = Future.value();
@@ -72,9 +73,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     push.onOpen = (id) async {
+      pendingPushReminder = id;
       await load();
-      final matches = (reminders ?? <Json>[]).where((r) => r['id'] == id);
-      if (mounted && matches.isNotEmpty) openDetail(matches.first);
+      openPendingPush();
     };
     load();
     restorePush();
@@ -91,6 +92,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         setState(() {});
       }
     });
+  }
+
+  void openPendingPush() {
+    if (!mounted ||
+        loading ||
+        pendingPushReminder == null ||
+        reminders == null) {
+      return;
+    }
+    final matches = reminders!.where((r) => r['id'] == pendingPushReminder);
+    pendingPushReminder = null;
+    if (matches.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) openDetail(matches.first);
+      });
+    }
   }
 
   Future<void> restorePush() async {
@@ -165,7 +182,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
     } finally {
-      if (mounted) setState(() => loading = false);
+      if (mounted) {
+        setState(() => loading = false);
+        openPendingPush();
+      }
     }
   }
 

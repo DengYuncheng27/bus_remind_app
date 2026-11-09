@@ -1,5 +1,6 @@
 import '../repeat_schedule.dart';
 import 'repeat_sheet.dart';
+import 'extensions_screen.dart';
 
 import 'package:flutter/material.dart';
 
@@ -26,7 +27,8 @@ class _ReminderEditorState extends State<ReminderEditor> {
   List<Json> cities = [], routes = [], stops = [], channels = [];
   Json? city, route, stop;
   int step = 0, before = 3;
-  int? channelId;
+  final selectedChannels = <int>{};
+  bool deliveryChanged = false;
   bool loading = true, busy = false, searched = false;
   String? error;
   RepeatSchedule repeat = RepeatSchedule();
@@ -39,6 +41,9 @@ class _ReminderEditorState extends State<ReminderEditor> {
     final r = widget.reminder;
     if (r != null) {
       step = 2;
+      selectedChannels.addAll(
+        ((r['channel_ids'] as List?) ?? [r['channel_id']]).whereType<int>(),
+      );
       before = r['stations_before'];
       repeat = RepeatSchedule.fromReminder(r);
       start = parseTime(r['window_start'], start);
@@ -86,7 +91,9 @@ class _ReminderEditorState extends State<ReminderEditor> {
           b['type'] == 'mobilepush' ? 0 : 1,
         ),
       );
-      if (channels.isNotEmpty) channelId = channels.first['id'];
+      if (channels.isNotEmpty && selectedChannels.isEmpty) {
+        selectedChannels.add(channels.first['id'] as int);
+      }
     } catch (e) {
       error = e.toString();
     }
@@ -136,7 +143,7 @@ class _ReminderEditorState extends State<ReminderEditor> {
 
   Future<void> save() async {
     if (busy) return;
-    if (!editing && channelId == null) return;
+    if (!editing && selectedChannels.isEmpty) return;
     if (start == end) {
       setState(() => error = '开始和结束时间不能相同');
       return;
@@ -151,11 +158,12 @@ class _ReminderEditorState extends State<ReminderEditor> {
         'windowStart': clockText(start),
         'windowEnd': clockText(end),
         'schedule': repeat.toJson(),
+        if (!editing || deliveryChanged)
+          'channelIds': selectedChannels.toList(),
         if (!editing) ...{
           'cityId': city!['cityId'],
           'lineId': route!['lineId'],
           'targetStopId': stop!['id'],
-          'channelId': channelId,
           'maxNotificationsPerBus': 1,
           'repeatIntervalMinutes': 2,
         },
@@ -203,7 +211,7 @@ class _ReminderEditorState extends State<ReminderEditor> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
                 child: FilledButton(
-                  onPressed: busy || (!editing && channelId == null)
+                  onPressed: busy || (!editing && selectedChannels.isEmpty)
                       ? null
                       : save,
                   child: Text(busy ? '保存中…' : '保存提醒'),
@@ -318,6 +326,7 @@ class _ReminderEditorState extends State<ReminderEditor> {
                       onTap: () => setState(() {
                         stop = s;
                         step = 2;
+
                         error = null;
                       }),
                     ),
@@ -446,40 +455,40 @@ class _ReminderEditorState extends State<ReminderEditor> {
                       start.hour * 60 + start.minute)
                     const Text('结束时间为次日', style: TextStyle(color: green)),
                   const Divider(),
-                  if (!editing && channels.isEmpty) ...[
-                    const Text('先连接手机通知，再开启提醒。'),
+                  ListTile(
+                    key: const ValueKey('delivery-settings'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('接收渠道'),
+                    subtitle: Text(
+                      selectedChannels.isEmpty
+                          ? '先连接通知或添加高级扩展'
+                          : '已选择 ${selectedChannels.length} 个渠道',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: busy
+                        ? null
+                        : () async {
+                            final selected = await selectDelivery(
+                              context,
+                              widget.api,
+                              selectedChannels,
+                            );
+                            if (selected != null && mounted) {
+                              setState(() {
+                                selectedChannels.clear();
+                                selectedChannels.addAll(selected);
+                                deliveryChanged = true;
+                              });
+                            }
+                          },
+                  ),
+                  if (!editing && selectedChannels.isEmpty)
                     TextButton(
                       onPressed: () async {
                         await widget.onSetup?.call();
                         if (mounted) init();
                       },
-                      child: const Text('连接手机通知'),
-                    ),
-                  ] else if (!editing)
-                    DropdownButtonFormField<int>(
-                      initialValue: channelId,
-                      decoration: const InputDecoration(labelText: '提醒发送到'),
-                      items: channels
-                          .map(
-                            (c) => DropdownMenuItem<int>(
-                              value: c['id'],
-                              child: Text(c['label']),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (v) => setState(() => channelId = v),
-                    ),
-                  if (!editing &&
-                      channels.any(
-                        (c) =>
-                            c['id'] == channelId && c['type'] != 'mobilepush',
-                      ))
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8),
-                      child: Text(
-                        '提醒发往所选渠道；此手机尚未连接原生通知。',
-                        style: TextStyle(color: Color(0xFF876222)),
-                      ),
+                      child: const Text('前往通知设置'),
                     ),
                   const SizedBox(height: 24),
                 ],
