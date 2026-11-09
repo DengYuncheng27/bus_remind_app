@@ -6,6 +6,7 @@ import 'package:xiabanwang/screens/auth_screen.dart';
 class AuthApi extends Api {
   final calls = <(String, Json?)>[];
   bool available = true;
+  String? existingEmail;
   @override
   Future<dynamic> request(
     String path, {
@@ -20,6 +21,9 @@ class AuthApi extends Api {
       };
     }
     if (path.endsWith('email-code') || path.endsWith('/code')) {
+      if (body?['purpose'] == 'register' && body?['email'] == existingEmail) {
+        throw ApiException('该邮箱已注册，请登录', 409);
+      }
       return {
         'data': {'challengeId': 'test-challenge', 'retryAfter': 60},
       };
@@ -90,6 +94,7 @@ void main() {
       await enter(tester, 'auth-email', 'New@Example.com');
       await tap(tester, find.byKey(const ValueKey('send-code')));
       expect(api.calls.last.$2?['purpose'], 'register');
+      expect(find.textContaining('验证码请求已受理'), findsOneWidget);
       expect(
         tester
             .widget<TextButton>(find.byKey(const ValueKey('send-code')))
@@ -107,6 +112,71 @@ void main() {
       expect(api.calls.last.$2?['code'], '123456');
       expect(api.token, 'test-token');
       expect(successes, 1);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'registration fields follow email, password, confirmation, then code',
+    (tester) async {
+      await setup(tester, AuthApi());
+      await tap(tester, find.text('还没有账号？创建一个'));
+      final fields = [
+        'auth-email',
+        'auth-password',
+        'auth-confirm',
+        'auth-code',
+      ];
+      for (var i = 0; i < fields.length - 1; i++) {
+        expect(
+          tester.getTopLeft(find.byKey(ValueKey(fields[i]))).dy,
+          lessThan(tester.getTopLeft(find.byKey(ValueKey(fields[i + 1]))).dy),
+        );
+      }
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'existing email shows a clear error without a countdown and allows correcting the address',
+    (tester) async {
+      final api = AuthApi()..existingEmail = 'existing@qq.com';
+      await setup(tester, api);
+      await tap(tester, find.text('还没有账号？创建一个'));
+      await enter(tester, 'auth-email', 'Existing@qq.com');
+      await tap(tester, find.byKey(const ValueKey('send-code')));
+      expect(find.text('该邮箱已注册，请登录'), findsOneWidget);
+      expect(find.textContaining('秒后重新发送'), findsNothing);
+      expect(find.textContaining('验证码请求已受理'), findsNothing);
+      expect(
+        tester
+            .widget<TextButton>(find.byKey(const ValueKey('send-code')))
+            .onPressed,
+        isNotNull,
+      );
+      await enter(tester, 'auth-email', 'new@qq.com');
+      expect(find.text('该邮箱已注册，请登录'), findsNothing);
+      await tap(tester, find.byKey(const ValueKey('send-code')));
+      expect(find.textContaining('秒后重新发送'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'invalid mailbox syntax is blocked before the send-code API call',
+    (tester) async {
+      final api = AuthApi();
+      await setup(tester, api);
+      await tap(tester, find.text('还没有账号？创建一个'));
+      for (final email in ['a..b@qq.com', 'a@qq..com', 'a@q_q.com']) {
+        await enter(tester, 'auth-email', email);
+        await tap(tester, find.byKey(const ValueKey('send-code')));
+        expect(find.text('请输入有效的邮箱地址'), findsOneWidget);
+      }
+      expect(api.calls.where((c) => c.$1.endsWith('email-code')), isEmpty);
+      expect(
+        tester
+            .widget<TextButton>(find.byKey(const ValueKey('send-code')))
+            .onPressed,
+        isNotNull,
+      );
       await tester.pumpWidget(const SizedBox());
     },
   );
