@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../push.dart';
 import 'extensions_screen.dart';
 import 'password_screen.dart';
+import 'auth_screen.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
@@ -34,6 +35,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool busy = false;
   String? message;
   int? deviceId;
+  bool verifiedHere = false;
   @override
   void initState() {
     super.initState();
@@ -199,6 +201,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ),
+        if (widget.profile?['email']?.toString().contains('@') == true)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.mark_email_read_outlined, color: green),
+            title: const Text('邮箱验证'),
+            subtitle: Text(
+              verifiedHere || widget.profile?['emailVerifiedAt'] != null
+                  ? '已验证 · 可通过邮箱找回密码'
+                  : '尚未验证 · 验证后可找回密码',
+            ),
+            trailing: verifiedHere || widget.profile?['emailVerifiedAt'] != null
+                ? const Icon(Icons.check_circle_outline, color: green)
+                : const Icon(Icons.chevron_right),
+            onTap: verifiedHere || widget.profile?['emailVerifiedAt'] != null
+                ? null
+                : () async {
+                    final done = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AuthScreen(
+                          api: widget.api,
+                          verificationEmail: widget.profile!['email']
+                              .toString(),
+                          onSuccess: () => Navigator.pop(context, true),
+                        ),
+                      ),
+                    );
+                    if (done == true && mounted) {
+                      setState(() => verifiedHere = true);
+                    }
+                  },
+          ),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.lock_outline, color: green),
@@ -223,7 +257,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const Divider(height: 32),
-        const Text('下班王 0.2.0', style: TextStyle(fontWeight: FontWeight.w700)),
+        const Text('下班王 0.3.0', style: TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
         const Text(
           '所有提醒时段均按北京时间执行。\n车辆位置与预计到达时间来自公交数据服务。',
