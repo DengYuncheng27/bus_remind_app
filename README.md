@@ -85,6 +85,10 @@ Web/PWA 和 Android ARM64 release APK 已可在本机构建；Dart 分析、自�
 
 ## 代码位置
 
+应用图标采用森林绿底、奶油白巴士铃铛与暖金色提示点。定稿原图与生成提示词保存在 `assets/branding/`；Android、iOS、Web/PWA、通知和应用内品牌标识共用该设计。圆角交给系统裁切，PWA maskable 与 Android adaptive 图标额外保留安全边距。
+
+在 Windows PowerShell 运行 `./tool/generate-icons.ps1` 可从定稿原图重新导出所有尺寸；加 `-AdminWebRoot ../bug_reminder/web/public` 可同步管理后台图标。图标更新后应同步调整网页图标 URL 的版本参数，避免旧缓存。
+
 - `lib/api.dart`：HTTP、鉴权续期、错误处理、到站状态判断。
 - `lib/push.dart`：手机通知接入与通知跳转。
 - `lib/screens/`：登录、通勤首页、创建/编辑、详情、设置。

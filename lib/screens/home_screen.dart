@@ -571,7 +571,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       automaticallyImplyLeading: false,
       title: Row(
         children: [
-          const Icon(Icons.directions_bus_rounded, color: green, size: 24),
+          const AppBrandIcon(size: 30),
           const SizedBox(width: 8),
           Text(
             ['下班王', '通勤提醒', '我的'][tab],

@@ -1,5 +1,23 @@
 import 'package:flutter/material.dart';
 
+class AppBrandIcon extends StatelessWidget {
+  final double size;
+  const AppBrandIcon({super.key, this.size = 32});
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(size * 0.22),
+    child: Image.asset(
+      'assets/branding/app-icon.png',
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      excludeFromSemantics: true,
+      filterQuality: FilterQuality.high,
+    ),
+  );
+}
+
 void notice(BuildContext context, String message) =>
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));

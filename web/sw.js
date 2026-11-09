@@ -10,7 +10,7 @@ self.addEventListener('push', event => {
   event.waitUntil((async () => {
     await self.registration.showNotification(typeof payload.title === 'string' && payload.title.trim() ? payload.title : '下班王 · 到站提醒', {
       body: typeof payload.body === 'string' ? payload.body : '',
-      icon: '/icons/xiabanwang-192.png', badge: '/icons/xiabanwang-192.png',
+      icon: '/icons/xiabanwang-192.png?v=bell-forest-1', badge: '/icons/xiabanwang-192.png?v=bell-forest-1',
       tag, renotify: Boolean(tag), data: { url },
     });
     if (typeof payload.testId === 'string') {

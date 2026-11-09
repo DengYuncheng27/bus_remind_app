@@ -212,7 +212,7 @@ class _AuthScreenState extends State<AuthScreen> {
             SizedBox(height: verify ? 16 : 36),
             const Align(
               alignment: Alignment.centerLeft,
-              child: Icon(Icons.directions_bus_rounded, size: 44, color: green),
+              child: AppBrandIcon(size: 60),
             ),
             const SizedBox(height: 20),
             Text('下班王', style: Theme.of(context).textTheme.headlineLarge),

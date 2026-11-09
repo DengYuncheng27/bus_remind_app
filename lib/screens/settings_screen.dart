@@ -257,7 +257,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const Divider(height: 32),
-        const Text('下班王 0.3.0', style: TextStyle(fontWeight: FontWeight.w700)),
+        const Text('下班王 0.3.1', style: TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
         const Text(
           '所有提醒时段均按北京时间执行。\n车辆位置与预计到达时间来自公交数据服务。',

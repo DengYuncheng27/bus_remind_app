@@ -1,0 +1,14 @@
+{
+  "application": "下班王",
+  "tool": "built-in image_gen",
+  "editTarget": "Concept C: bus-bell silhouette (design exploration)",
+  "intent": "Approved by user on 2026-11-09; source for application icon assets.",
+  "variants": [
+    {
+      "id": "1",
+      "name": "森林绿",
+      "file": "app-icon-source.png",
+      "prompt": "Use case: precise-object-edit\nAsset type: recoloring an existing mobile app icon for 下班王.\nInput image: the provided high-resolution image is the exact edit target, a unified front-facing bus and notification bell silhouette on blue with a circular accent.\nPrimary request: COLOR CHANGE ONLY. Preserve the exact existing bus-bell silhouette, windshield shape, two round headlights, top bell knob, flared bottom edge, two feet, circular notification dot, their position and sizes, canvas proportions, margins and original composition. The selected design must remain immediately identical in geometry. Do not draw a new symbol, move elements, change stroke widths, add a crown, add a separate bell, or change the silhouette. Replace the original bright cobalt and fluorescent lime with a coordinated sophisticated palette.\nStyle: clean premium app icon, mostly flat colors, very subtle existing soft finish, no added texture or new shadow. A single 1:1 square icon with background covering the entire image edge to edge. No surrounding white page, inset tile, rounded external frame, caption, letters, watermark, phone mockup or extra imagery.\nColor replacement: Replace the full blue background and all blue cutout regions (windshield and headlight holes) with deep muted forest teal #1C665A. Replace the white bus-bell body with warm ivory #FFF7E8. Replace the original lime circular notification dot with soft warm amber #E5B766. This should feel calm, trustworthy and warmly distinctive, with excellent small-icon contrast. Preserve the dot as a simple circle."
+    }
+  ]
+}
