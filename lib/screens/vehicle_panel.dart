@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api.dart';
+import '../map_tiles.dart';
 import '../palette.dart';
 import '../vehicles.dart';
 
@@ -477,11 +478,16 @@ class _BusMapState extends State<BusMap> {
     super.dispose();
   }
 
-  void tileError() {
-    if (tileFailed) return;
+  void tileError(int attempt) {
+    if (tileFailed || attempt != tileAttempt) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !tileFailed) setState(() => tileFailed = true);
+      if (mounted && !tileFailed && attempt == tileAttempt) {
+        setState(() => tileFailed = true);
+      }
     });
+    // A network error can arrive while Flutter is idle (especially on Safari).
+    // Post-frame callbacks alone do not request a frame, leaving errors hidden.
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override
@@ -510,6 +516,7 @@ class _BusMapState extends State<BusMap> {
       );
     }
     final missing = widget.buses.where((b) => coordinates(b) == null).length;
+    final attempt = tileAttempt;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -533,13 +540,9 @@ class _BusMapState extends State<BusMap> {
                   ),
                   children: [
                     if (widget.loadTiles)
-                      TileLayer(
+                      BusMapTiles(
                         key: ValueKey(tileAttempt),
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'space.su7.xiabanwang',
-                        maxNativeZoom: 19,
-                        errorTileCallback: (_, _, _) => tileError(),
+                        onError: () => tileError(attempt),
                       ),
                     MarkerLayer(
                       markers: [

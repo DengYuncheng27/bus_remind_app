@@ -104,7 +104,8 @@ Web/PWA 和 Android ARM64 release APK 已可在本机构建；Dart 分析、自�
 
 详情页展示同线路、同方向驶向上车站的车辆，默认展开最近三辆，可展开其余车辆。编号与地图联动，点击车辆聚焦它和上车站；手动刷新不会重置地图视野。已经驶过及站数未知的车辆单独列出，不当作下一班。没有坐标仍保留站数，地图失败可重试。
 
-- 地图使用 `flutter_map` 和 OpenStreetMap HTTPS 瓦片，保留可点击署名、原生应用 User-Agent 及默认缓存；不申请手机定位、不做离线下载。正式规模化运营前按 [OSM 瓦片政策](https://operations.osmfoundation.org/policies/tiles/) 选择适合的地图服务；国内网络可用性需真机验证。
+- 地图使用 `flutter_map` 和 OpenStreetMap HTTPS 瓦片。Web 使用本站 `/api/map-tiles/{z}/{x}/{y}.png`，由后端缓存与转发，避免 iPhone 蜂窝网络直连海外瓦片域名导致底图空白；原生端仍直连 OSM。保留可点击署名、原生应用 User-Agent 及缓存，不申请手机定位、不做离线下载。正式规模化运营前按 [OSM 瓦片政策](https://operations.osmfoundation.org/policies/tiles/) 选择适合的地图服务。
+- 地图下载有 12 秒完整请求超时（包含响应正文）；失败提示主动触发界面刷新，空闲状态也能显示“重试地图”。重试只重建瓦片图层，保留车辆标记和用户视野。发布此客户端前需先部署包含地图接口的后端；本地静态预览也需将该路径转发至相应后端。
 - 车来了的车辆坐标使用 WGS-84，原始站点 `lat/lng` 为 BD-09。服务端现在优先返回 `wgsLat/wgsLng`，并附 `coordinateSystem`。客户端对旧车来了服务的站点单独做 BD-09 转 WGS-84 近似转换，避免双重转换或车辆与站点错位。
 - 新接口 `distanceSource: target-stop` 的 `distanceMeters` 才表示距上车站；`distanceToSc` 单独保留为 `nextStopDistanceMeters`，不能冒充距上车站。跨上车站共享的缓存也不会借用另一个站的距离。
 - 旧接口距离字段有歧义，客户端用车辆和校正后站点的坐标显示“直线约 X 米”，不冒充行驶里程；无坐标且无可信距离时明确显示暂未提供。服务端距离修正需部署后生效，地图和直线距离兼容现有服务。
