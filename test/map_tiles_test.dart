@@ -12,14 +12,14 @@ void main() {
         isWeb: true,
         pageUri: Uri.parse('https://bus.su7.space/'),
       ),
-      'https://bus.su7.space/api/map-tiles/{z}/{x}/{y}.png',
+      'https://bus.su7.space/api/map-tiles/{z}/{x}/{y}.png?v=1',
     );
     expect(
       mapTileUrlTemplate(
         isWeb: true,
         pageUri: Uri.parse('http://localhost:8765/build/'),
       ),
-      'http://localhost:8765/api/map-tiles/{z}/{x}/{y}.png',
+      'http://localhost:8765/api/map-tiles/{z}/{x}/{y}.png?v=1',
     );
     expect(
       mapTileUrlTemplate(isWeb: false),

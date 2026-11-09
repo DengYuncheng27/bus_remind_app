@@ -6,7 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 
 String mapTileUrlTemplate({bool isWeb = kIsWeb, Uri? pageUri}) => isWeb
-    ? '${(pageUri ?? Uri.base).origin}/api/map-tiles/{z}/{x}/{y}.png'
+    ? '${(pageUri ?? Uri.base).origin}/api/map-tiles/{z}/{x}/{y}.png?v=1'
     : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 // Bound the entire transfer, including a response whose headers arrive but
