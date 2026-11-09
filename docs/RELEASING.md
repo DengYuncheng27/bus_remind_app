@@ -2,9 +2,11 @@
 
 ## 当前状态与目标
 
-2026-11-09 将正式 Android 安装包迁往公开仓库 GitHub Releases。`v0.3.2` 是当前稳定版，约 23 MB，文件与原官网下载完全一致；`v0.3.0`、`v0.3.1` 保留历史归档。客户端没有应用内版本检查，也没有静默更新功能。
+2026-11-09 将正式 Android 安装包迁往公开仓库 GitHub Releases。`v0.3.4`（build 7）是当前稳定版，约 23 MB，包含旧账号找回密码及邮件发送失败提示；`v0.3.0`、`v0.3.1`、`v0.3.2` 保留历史归档。客户端没有应用内版本检查，也没有静默更新功能。
 
 `.github/workflows/android-release.yml` 将 Android 分发从业务部署中拆出。原生产签名已配置到本仓库 Actions Secrets，后续推送版本 tag 即可触发发布。首次迁移直接上传经签名和哈希核验的现有 APK，保留原始 tag 对应的代码，不重编历史版本。
+
+`v0.3.4` 已通过 [完整自动构建与发布](https://github.com/DengYuncheng27/bus_remind_app/actions/runs/42603332469)，并通过匿名下载、SHA-256 和原生产签名复核。`v0.3.3` 构建因 SDK manager 不在 PATH 中失败，未发布安装包；已改用 Android SDK 内的绝对路径，并递增版本重新发布，未移动已有 tag。
 
 ```mermaid
 flowchart LR
@@ -35,12 +37,12 @@ flowchart LR
 
 ## 日常发版
 
-1. 合入已验证的修改，将 `pubspec.yaml` 的版本及 build number 一起递增，例如 `0.3.3+6`。
+1. 合入已验证的修改，将 `pubspec.yaml` 的版本及 build number 一起递增，例如 `0.3.5+8`。
 2. 提交并推送代码，再推送匹配的 tag：
 
    ```sh
-   git tag -a v0.3.3 -m "Release 0.3.3"
-   git push origin v0.3.3
+   git tag -a v0.3.5 -m "Release 0.3.5"
+   git push origin v0.3.5
    ```
 
 3. 在 Actions 检查结果。工作流会运行 Dart 分析、Flutter 测试、网页 JS 测试、发布校验测试，再构建签名 ARM64 APK。
