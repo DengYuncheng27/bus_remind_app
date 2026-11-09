@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xiabanwang/api.dart';
 import 'package:xiabanwang/demo.dart';
 import 'package:xiabanwang/repeat_schedule.dart';
 import 'package:xiabanwang/screens/reminder_editor.dart';
@@ -15,7 +14,7 @@ Widget shell(Widget child) => MaterialApp(
 );
 
 void main() {
-  test('China date and stored alternating masks round trip without losing phase or holidays', () {
+  test('China date and custom interval round trip without losing phase or holidays', () {
     expect(
       dateText(chinaToday(DateTime.parse('2026-11-03T17:00:00Z'))),
       '2026-11-04',
@@ -24,7 +23,6 @@ void main() {
       'schedule_mode': 'custom',
       'schedule_interval_weeks': 2,
       'schedule_weekdays_mask': 63,
-      'schedule_alternate_weekdays_mask': 31,
       'schedule_anchor_date': '2026-11-02',
       'skip_statutory_holidays': 1,
     };
@@ -33,11 +31,10 @@ void main() {
       'mode': 'custom',
       'intervalWeeks': 2,
       'weekdays': [1, 2, 3, 4, 5, 6],
-      'alternateWeekdays': [1, 2, 3, 4, 5],
       'anchorDate': '2026-11-02',
       'skipStatutoryHolidays': true,
     });
-    expect(value.summary, contains('第2周'));
+    expect(value.summary, contains('每 2 周'));
     expect(
       RepeatSchedule.fromReminder({'schedule_mode': 'china_workday'}).toJson(),
       {'mode': 'china_workday'},
@@ -91,7 +88,7 @@ void main() {
   );
 
   testWidgets(
-    'alternating preset submits both weeks and holiday checkbox at small screen size',
+    'custom interval and holiday exclusion work at small screen size',
     (tester) async {
       tester.view.physicalSize = const Size(360, 800);
       tester.view.devicePixelRatio = 1;
@@ -119,7 +116,11 @@ void main() {
       );
       await tester.tap(find.text('打开'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('alternate-weeks')));
+      await tester.enterText(
+        find.byKey(const ValueKey('repeat-interval')),
+        '2',
+      );
+      await tester.tap(find.byKey(const ValueKey('weekday-6')));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(const ValueKey('skip-holidays')));
       await tester.tap(find.byKey(const ValueKey('skip-holidays')));
@@ -128,7 +129,7 @@ void main() {
       await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
       expect(result?.weekdays, [1, 2, 3, 4, 5, 6]);
-      expect(result?.alternateWeekdays, [1, 2, 3, 4, 5]);
+      expect(result?.intervalWeeks, 2);
       expect(result?.skipHolidays, true);
       expect(tester.takeException(), isNull);
     },
@@ -164,46 +165,4 @@ void main() {
       expect(saved['window_end'], '18:30');
     },
   );
-
-  testWidgets(
-    'older server rejects alternating weeks before submitting a lossy update',
-    (tester) async {
-      final api = OldServerApi();
-      api.reminders[0].addAll({
-        'schedule_mode': 'custom',
-        'schedule_interval_weeks': 2,
-        'schedule_weekdays_mask': 63,
-        'schedule_alternate_weekdays_mask': 31,
-        'schedule_anchor_date': '2026-11-02',
-      });
-      await tester.pumpWidget(
-        shell(ReminderEditor(api: api, reminder: api.reminders[0])),
-      );
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('保存提醒'));
-      await tester.tap(find.text('保存提醒'));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('大小周功能尚未开通，请联系管理员'));
-      expect(find.text('大小周功能尚未开通，请联系管理员'), findsOneWidget);
-      expect(api.saved, false);
-    },
-  );
-}
-
-class OldServerApi extends DemoApi {
-  bool saved = false;
-  OldServerApi() : super(latency: Duration.zero);
-  @override
-  Future<dynamic> request(
-    String path, {
-    String method = 'GET',
-    Json? body,
-    Map<String, String>? query,
-  }) async {
-    if (path == '/api/reminders/capabilities') {
-      throw ApiException('Not found', 404);
-    }
-    if (method == 'PATCH' || method == 'POST') saved = true;
-    return super.request(path, method: method, body: body, query: query);
-  }
 }

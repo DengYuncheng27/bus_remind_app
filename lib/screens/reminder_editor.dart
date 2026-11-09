@@ -146,19 +146,6 @@ class _ReminderEditorState extends State<ReminderEditor> {
       error = null;
     });
     try {
-      if (repeat.alternateWeekdays != null) {
-        try {
-          final capability = await widget.api.data(
-            '/api/reminders/capabilities',
-          );
-          if (capability['alternatingWeeks'] != true) {
-            throw ApiException('大小周功能尚未开通，请联系管理员');
-          }
-        } on ApiException catch (e) {
-          if (e.status == 404) throw ApiException('大小周功能尚未开通，请联系管理员');
-          rethrow;
-        }
-      }
       final body = <String, dynamic>{
         'stationsBefore': before,
         'windowStart': clockText(start),

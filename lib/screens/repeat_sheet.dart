@@ -25,9 +25,9 @@ class RepeatSheet extends StatefulWidget {
 
 class _RepeatSheetState extends State<RepeatSheet> {
   late final TextEditingController interval;
-  late Set<int> days, secondDays;
+  late Set<int> days;
   late DateTime anchor;
-  late bool skipHolidays, alternating;
+  late bool skipHolidays;
   String? error;
   @override
   void initState() {
@@ -41,8 +41,6 @@ class _RepeatSheetState extends State<RepeatSheet> {
                 ? [1, 2, 3, 4, 5]
                 : value.weekdays)
             .toSet();
-    secondDays = (value.alternateWeekdays ?? [1, 2, 3, 4, 5]).toSet();
-    alternating = value.alternateWeekdays != null;
     anchor = value.anchor;
     skipHolidays = value.skipHolidays;
   }
@@ -127,16 +125,15 @@ class _RepeatSheetState extends State<RepeatSheet> {
       setState(() => error = '请输入 1–52 之间的周数');
       return;
     }
-    if (days.isEmpty || (alternating && secondDays.isEmpty)) {
-      setState(() => error = alternating ? '每一周至少选择一天' : '至少选择一个星期');
+    if (days.isEmpty) {
+      setState(() => error = '至少选择一个星期');
       return;
     }
     Navigator.pop(
       context,
       RepeatSchedule(
-        intervalWeeks: alternating ? 2 : weeks,
+        intervalWeeks: weeks,
         weekdays: days.toList()..sort(),
-        alternateWeekdays: alternating ? (secondDays.toList()..sort()) : null,
         anchor: anchor,
         skipHolidays: skipHolidays,
       ),
@@ -164,7 +161,6 @@ class _RepeatSheetState extends State<RepeatSheet> {
                   child: TextField(
                     key: const ValueKey('repeat-interval'),
                     controller: interval,
-                    enabled: !alternating,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
                     inputFormatters: [
@@ -180,37 +176,10 @@ class _RepeatSheetState extends State<RepeatSheet> {
                 ),
                 const SizedBox(width: 12),
                 const Text('周', style: TextStyle(fontSize: 17)),
-                const Spacer(),
-                FilterChip(
-                  key: const ValueKey('alternate-weeks'),
-                  label: SizedBox(
-                    width: MediaQuery.textScalerOf(context).scale(48),
-                    child: const Text('大小周', maxLines: 1, softWrap: false),
-                  ),
-                  selected: alternating,
-                  onSelected: (enabled) => setState(() {
-                    alternating = enabled;
-                    error = null;
-                    if (enabled) {
-                      interval.text = '2';
-                      days = {1, 2, 3, 4, 5, 6};
-                      secondDays = {1, 2, 3, 4, 5};
-                    }
-                  }),
-                ),
               ],
             ),
             const SizedBox(height: 20),
-            weekdays(days, alternating ? '第1周' : '提醒星期', 'weekday'),
-            if (alternating) ...[
-              const SizedBox(height: 12),
-              weekdays(secondDays, '第2周', 'alternate-weekday'),
-              const SizedBox(height: 8),
-              const Text(
-                '两周依次循环，可分别调整上班日。',
-                style: TextStyle(color: Color(0xFF66756C), fontSize: 13),
-              ),
-            ],
+            weekdays(days, '提醒星期', 'weekday'),
             CheckboxListTile(
               key: const ValueKey('skip-holidays'),
               contentPadding: EdgeInsets.zero,
@@ -246,9 +215,7 @@ class _RepeatSheetState extends State<RepeatSheet> {
               },
             ),
             Text(
-              alternating
-                  ? '开始日期所在周为第1周；从开始日期起提醒。'
-                  : int.tryParse(interval.text) == 1
+              int.tryParse(interval.text) == 1
                   ? '从开始日期起，按所选星期提醒。'
                   : '开始日期所在周为提醒周，之后按间隔重复。',
               style: const TextStyle(color: Color(0xFF66756C), fontSize: 13),

@@ -79,11 +79,6 @@ class DemoApi extends Api {
     Map<String, String>? query,
   }) async {
     if (latency != Duration.zero) await Future<void>.delayed(latency);
-    if (path == '/api/reminders/capabilities') {
-      return {
-        'data': {'alternatingWeeks': true},
-      };
-    }
     if (path == '/api/me') return {'email': 'preview@example.com'};
     if (path == '/api/auth/registration') {
       return {
@@ -245,9 +240,6 @@ Json scheduleFields(Json schedule) => {
   'schedule_weekdays_mask': daysMask(
     List<int>.from(schedule['weekdays'] ?? [1, 2, 3, 4, 5, 6, 7]),
   ),
-  'schedule_alternate_weekdays_mask': schedule['alternateWeekdays'] == null
-      ? null
-      : daysMask(List<int>.from(schedule['alternateWeekdays'])),
   'schedule_anchor_date': schedule['anchorDate'],
   'skip_statutory_holidays': schedule['skipStatutoryHolidays'] ?? false,
 };

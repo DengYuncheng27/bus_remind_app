@@ -20,14 +20,12 @@ class RepeatSchedule {
   final String mode;
   final int intervalWeeks;
   final List<int> weekdays;
-  final List<int>? alternateWeekdays;
   final DateTime anchor;
   final bool skipHolidays;
   RepeatSchedule({
     this.mode = 'custom',
     this.intervalWeeks = 1,
     this.weekdays = const [1, 2, 3, 4, 5],
-    this.alternateWeekdays,
     DateTime? anchor,
     this.skipHolidays = false,
   }) : anchor = anchor ?? chinaToday();
@@ -37,9 +35,6 @@ class RepeatSchedule {
         mode: reminder['schedule_mode'] ?? 'custom',
         intervalWeeks: reminder['schedule_interval_weeks'] ?? 1,
         weekdays: daysFromMask(reminder['schedule_weekdays_mask'] ?? 31),
-        alternateWeekdays: reminder['schedule_alternate_weekdays_mask'] == null
-            ? null
-            : daysFromMask(reminder['schedule_alternate_weekdays_mask']),
         anchor: DateTime.tryParse(
           '${reminder['schedule_anchor_date']}T00:00:00Z',
         ),
@@ -51,9 +46,8 @@ class RepeatSchedule {
   String get summary {
     if (mode == 'daily') return '每天';
     if (mode == 'china_workday') return '法定工作日';
-    final repeat = alternateWeekdays == null
-        ? '${intervalWeeks == 1 ? '每周' : '每 $intervalWeeks 周'} · ${daysText(weekdays)}'
-        : '两周循环 · 第1周 ${daysText(weekdays)} / 第2周 ${daysText(alternateWeekdays!)}';
+    final repeat =
+        '${intervalWeeks == 1 ? '每周' : '每 $intervalWeeks 周'} · ${daysText(weekdays)}';
     return '$repeat${skipHolidays ? ' · 跳过法定节假日' : ''}';
   }
 
@@ -63,8 +57,6 @@ class RepeatSchedule {
           'mode': 'custom',
           'intervalWeeks': intervalWeeks,
           'weekdays': [...weekdays]..sort(),
-          if (alternateWeekdays != null)
-            'alternateWeekdays': [...alternateWeekdays!]..sort(),
           'anchorDate': dateText(anchor),
           'skipStatutoryHolidays': skipHolidays,
         };

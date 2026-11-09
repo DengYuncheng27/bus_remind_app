@@ -31,11 +31,11 @@ flutter run -d chrome --dart-define=API_BASE_URL=https://bus.su7.space
 
 本机连接真实后台的预览构建：`flutter --no-version-check build web --no-pub --dart-define=DEMO=false --dart-define=API_BASE_URL=https://bus.su7.space --dart-define=LOCAL_API_PROXY=true`。预览服务将 `/api/` 同源转发至固定的 `https://bus.su7.space`，保留 Bearer 身份验证和会话续期，不转发 Cookie，不接受任意上游地址。这解决旧线上 CORS 仅允许 GET/HEAD/POST 导致 PATCH 编辑、开关及 DELETE 被浏览器拦截的问题。开关仅在服务端成功响应后更新；发送期间禁用重复操作。
 
-该转发仅用于 `127.0.0.1:8765` 的显式本地预览，不改变客户端服务器配置和登录存储键；原生版仍直接访问 HTTPS API。远程 Web 部署需部署后端仓库 `src/app.ts` 的 CORS 方法修正。代理不会补齐旧后端缺失的大小周、今天暂停或原生推送能力。代理测试：`python -m unittest discover -s tool -p test_serve_web.py`。
+该转发仅用于 `127.0.0.1:8765` 的显式本地预览，不改变客户端服务器配置和登录存储键；原生版仍直接访问 HTTPS API。远程 Web 部署需部署后端仓库 `src/app.ts` 的 CORS 方法修正。代理不会补齐旧后端缺失的今天暂停或原生推送能力。代理测试：`python -m unittest discover -s tool -p test_serve_web.py`。
 
 ## 连接后台
 
-公交查询和普通提醒使用已有 API。大小周、手机推送及今天暂停需要后端支持相应接口；客户端发布不代表后端已经升级。接口职责及兼容性见 [后端对接说明](docs/BACKEND.md)。数据库、推送密钥与提醒调度保留在后端仓库，本客户端不直接访问数据库。
+公交查询和普通提醒使用已有 API。手机推送及今天暂停需要后端支持相应接口；客户端发布不代表后端已经升级。接口职责及兼容性见 [后端对接说明](docs/BACKEND.md)。数据库、推送密钥与提醒调度保留在后端仓库，本客户端不直接访问数据库。
 
 ```sh
 flutter run --dart-define=API_BASE_URL=https://bus.su7.space
@@ -92,7 +92,7 @@ flutter build web --dart-define=API_BASE_URL=https://bus.su7.space --dart-define
 - `tool/`：本地 Web 预览服务、预览服务测试和独立组件预览入口。
 - `docs/BACKEND.md`：后端依赖、接口兼容性和独立发布说明。
 
-手机端新建提醒统一使用自定义重复：每 1–52 周、选择星期、开始日期、可跳过法定节假日。大小周可分别选择第1周和第2周的星期，默认第1周一至六、第2周一至五；开始日期所在周为第1周，开始日期之前不提醒。仅新增 `alternateWeekdays` 时需要本次服务端升级；普通间隔周规则兼容旧接口。客户端会先检查服务端能力，防止旧服务端忽略大小周参数而保存错误规则。
+手机端新建提醒统一使用自定义重复：每 1–52 周、选择星期、开始日期、可跳过法定节假日。间隔周规则使用已有后端接口，不需要新增排期字段或能力检查接口。
 
 已移除“全天”，手机端始终提交明确开始、结束时间，不能相同；结束早于开始时表示跨午夜。旧的每天/法定工作日规则在打开编辑时保持原样，只有确认自定义弹层后才替换。多渠道配置、复杂模板和管理功能继续由 Web 管理。
 

@@ -20,7 +20,6 @@
 | 登录与账号 | `/api/auth/*`、`/api/me` |
 | 公交与换向 | `/api/cities`、`/api/routes/search`、`/api/routes/:lineId`、`/api/routes/:lineId/realtime` |
 | 提醒与渠道 | `/api/reminders`、`/api/reminders/:id`、`/api/channels` |
-| 大小周 | 先检查 `/api/reminders/capabilities` 中的 `alternatingWeeks`；不支持时停止提交，防止丢失规则 |
 | 今天暂停 | `POST /api/reminders/:id/pause-today`；旧服务不存在时明确提示失败 |
 | 原生推送 | 需要部署后端手机推送接口、配置极光与 APNs，并完成真机验证；客户端调用见 `lib/push.dart` |
 
