@@ -29,7 +29,9 @@ jobs:
       - name: Check version and release safeguards
         env:
           RELEASE_TAG: ${{ github.ref_name }}
+          JPUSH_APP_KEY: ${{ vars.JPUSH_APP_KEY }}
         run: |
+          test -n "$JPUSH_APP_KEY" || { echo 'Configure JPUSH_APP_KEY before publishing.' >&2; exit 1; }
           python3 tool/android_release.py version --tag "$RELEASE_TAG"
           python3 -m unittest discover -s tool -p test_android_release.py
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
