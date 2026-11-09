@@ -74,6 +74,39 @@ void main() {
     },
   );
 
+  testWidgets('time fields save exact values and retain overnight reminders', (
+    tester,
+  ) async {
+    final api = ReminderTestApi();
+    await tester.pumpWidget(CommuteApp(api: api));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('提醒设置'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('17:30'));
+    await tester.tap(find.text('17:30'));
+    await tester.pumpAndSettle();
+    expect(find.text('开始时间'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('time-hour')), '23');
+    await tester.enterText(find.byKey(const ValueKey('time-minute')), '5');
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('18:30'));
+    await tester.pumpAndSettle();
+    expect(find.text('结束时间'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('time-hour')), '0');
+    await tester.tap(find.widgetWithText(ChoiceChip, '45'));
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(find.text('结束时间为次日'), findsOneWidget);
+    await tester.ensureVisible(find.text('保存提醒'));
+    await tester.tap(find.text('保存提醒'));
+    await tester.pumpAndSettle();
+    expect(api.lastBody?['windowStart'], '23:05');
+    expect(api.lastBody?['windowEnd'], '00:45');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('failed save retains edits and can be retried', (tester) async {
     final api = ReminderTestApi();
     await tester.pumpWidget(CommuteApp(api: api));

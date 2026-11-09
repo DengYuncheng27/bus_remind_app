@@ -1,5 +1,6 @@
 import '../repeat_schedule.dart';
 import 'repeat_sheet.dart';
+import 'time_picker_dialog.dart';
 import 'extensions_screen.dart';
 
 import 'package:flutter/material.dart';
@@ -414,14 +415,10 @@ class _ReminderEditorState extends State<ReminderEditor> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () async {
-                            final t = await showTimePicker(
-                              context: context,
+                            final t = await pickReminderTime(
+                              context,
                               initialTime: start,
-                              builder: (c, w) => MediaQuery(
-                                data: MediaQuery.of(c)
-                                    .copyWith(alwaysUse24HourFormat: true),
-                                child: w!,
-                              ),
+                              title: '开始时间',
                             );
                             if (t != null && mounted) setState(() => start = t);
                           },
@@ -435,14 +432,10 @@ class _ReminderEditorState extends State<ReminderEditor> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () async {
-                            final t = await showTimePicker(
-                              context: context,
+                            final t = await pickReminderTime(
+                              context,
                               initialTime: end,
-                              builder: (c, w) => MediaQuery(
-                                data: MediaQuery.of(c)
-                                    .copyWith(alwaysUse24HourFormat: true),
-                                child: w!,
-                              ),
+                              title: '结束时间',
                             );
                             if (t != null && mounted) setState(() => end = t);
                           },
