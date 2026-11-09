@@ -7,6 +7,7 @@ class AuthApi extends Api {
   final calls = <(String, Json?)>[];
   bool available = true;
   String? existingEmail;
+  ApiException? mailFailure;
   @override
   Future<dynamic> request(
     String path, {
@@ -21,6 +22,7 @@ class AuthApi extends Api {
       };
     }
     if (path.endsWith('email-code') || path.endsWith('/code')) {
+      if (mailFailure != null) throw mailFailure!;
       if (body?['purpose'] == 'register' && body?['email'] == existingEmail) {
         throw ApiException('该邮箱已注册，请登录', 409);
       }
@@ -94,7 +96,7 @@ void main() {
       await enter(tester, 'auth-email', 'New@Example.com');
       await tap(tester, find.byKey(const ValueKey('send-code')));
       expect(api.calls.last.$2?['purpose'], 'register');
-      expect(find.textContaining('验证码请求已受理'), findsOneWidget);
+      expect(find.textContaining('注册验证码已提交邮件服务'), findsOneWidget);
       expect(
         tester
             .widget<TextButton>(find.byKey(const ValueKey('send-code')))
@@ -145,7 +147,7 @@ void main() {
       await tap(tester, find.byKey(const ValueKey('send-code')));
       expect(find.text('该邮箱已注册，请登录'), findsOneWidget);
       expect(find.textContaining('秒后重新发送'), findsNothing);
-      expect(find.textContaining('验证码请求已受理'), findsNothing);
+      expect(find.textContaining('注册验证码已提交邮件服务'), findsNothing);
       expect(
         tester
             .widget<TextButton>(find.byKey(const ValueKey('send-code')))
@@ -202,6 +204,7 @@ void main() {
     final api = AuthApi();
     await setup(tester, api);
     await tap(tester, find.text('忘记密码？'));
+    expect(find.textContaining('无需先登录，旧账号也可找回'), findsOneWidget);
     await enter(tester, 'auth-email', 'verified@example.com');
     await tap(tester, find.byKey(const ValueKey('send-code')));
     expect(api.calls.last.$2?['purpose'], 'reset');
@@ -220,6 +223,27 @@ void main() {
     );
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets(
+    'failed recovery mail shows its error without a success countdown',
+    (tester) async {
+      final api = AuthApi()
+        ..mailFailure = ApiException('验证码邮件发送失败，请稍后重新获取', 502);
+      await setup(tester, api);
+      await tap(tester, find.text('忘记密码？'));
+      await enter(tester, 'auth-email', 'legacy@qq.com');
+      await tap(tester, find.byKey(const ValueKey('send-code')));
+      expect(find.text('验证码邮件发送失败，请稍后重新获取'), findsOneWidget);
+      expect(find.textContaining('秒后重新发送'), findsNothing);
+      expect(find.textContaining('重置验证码已提交至'), findsNothing);
+      expect(
+        tester
+            .widget<TextButton>(find.byKey(const ValueKey('send-code')))
+            .onPressed,
+        isNotNull,
+      );
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
   testWidgets('legacy email verification only calls authenticated endpoints', (
     tester,
   ) async {

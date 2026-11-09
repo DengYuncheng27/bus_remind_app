@@ -44,9 +44,9 @@ class _AuthScreenState extends State<AuthScreen> {
   bool get validEmail => isValidEmailAddress(normalizedEmail);
 
   String get codeRequestMessage => switch (mode) {
-    _AuthMode.register => '验证码请求已受理，10 分钟内有效。请查看收件箱和垃圾邮件。',
-    _AuthMode.reset => '请求已受理，仅已验证邮箱的正常账号会发送重置验证码。旧账号若尚未验证邮箱，请先用原密码登录并到「我的 → 邮箱验证」完成验证。验证码 10 分钟有效，倒计时不代表邮件已送达。',
-    _ => '验证请求已受理，请检查收件箱和垃圾邮件。验证码 10 分钟有效，倒计时仅表示再次请求的间隔，不代表邮件已送达。',
+    _AuthMode.register => '注册验证码已提交邮件服务，10 分钟内有效。请查看收件箱和垃圾邮件。',
+    _AuthMode.reset => '重置验证码已提交至账号登记邮箱，10 分钟内有效。请查看收件箱和垃圾邮件。验证成功后即可设置新密码。',
+    _ => '验证码已提交邮件服务，10 分钟内有效。请查看收件箱和垃圾邮件。',
   };
 
   @override
@@ -133,7 +133,9 @@ class _AuthScreenState extends State<AuthScreen> {
         challengeId = data['challengeId'];
         sentEmail = target;
         retryAfter = (data['retryAfter'] as num?)?.toInt() ?? 60;
-        message = codeRequestMessage;
+        message = data['message'] is String
+            ? data['message'] as String
+            : codeRequestMessage;
       });
       timer?.cancel();
       timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -149,7 +151,8 @@ class _AuthScreenState extends State<AuthScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          if (register && e is ApiException && e.status == 409) {
+          if (e is ApiException &&
+              [403, 404, 409, 502, 503].contains(e.status)) {
             clearChallenge();
             timer?.cancel();
             retryAfter = 0;
@@ -250,7 +253,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     ? '验证当前邮箱后，可以在忘记密码时找回账号。'
                     : register
                     ? '填写邮箱和密码，再输入邮箱验证码，即可开启通勤提醒。'
-                    : '使用已验证的邮箱重置密码。旧账号若尚未验证邮箱，请先登录并到「我的」完成验证。',
+                    : '使用账号登记的邮箱接收验证码，验证后设置新密码。无需先登录，旧账号也可找回。',
                 style: const TextStyle(color: Color(0xFF66756C), height: 1.6),
               ),
               if (policy != null && !emailAvailable)
