@@ -4,6 +4,8 @@ Android / iOS 共用客户端；Web 是正式用户入口，支持添加到主�
 
 客户端仓库：[bus_remind_app](https://github.com/DengYuncheng27/bus_remind_app)。后端与 React 网页管理端独立维护于 [BusReminder](https://github.com/DengYuncheng27/BusReminder)，本仓库只通过 HTTP API 与后端通信。
 
+Android 发布流程与首次迁移顺序见 [发布说明](docs/RELEASING.md)：版本 tag 触发 GitHub Actions，复用原签名、验证安装包并发布 GitHub Releases；下载页使用最新稳定版的固定入口。首次 Release 验证通过后再部署新版下载页。
+
 ## 已实现
 
 - 登录、按后台开放策略注册、邀请码、会话恢复与续期；原生端凭据使用安全存储。
