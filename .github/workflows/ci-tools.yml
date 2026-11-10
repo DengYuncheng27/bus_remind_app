@@ -1,0 +1,33 @@
+name: Web and release tooling checks
+
+on:
+  push:
+    branches: ['**']
+    paths: ['tool/**', 'web/**', '.github/workflows/ci-tools.yml', '.github/workflows/android-release.yml']
+  pull_request:
+    paths: ['tool/**', 'web/**', '.github/workflows/ci-tools.yml', '.github/workflows/android-release.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tooling-checks-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tooling:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - run: node --test tool/*.test.mjs
+      - run: python -m unittest discover -s tool -p 'test_*.py'

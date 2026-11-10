@@ -1,0 +1,33 @@
+name: Flutter checks
+
+on:
+  push:
+    branches: ['**']
+    paths: ['lib/**', 'test/**', 'assets/**', 'web/**', 'android/**', 'ios/**', 'pubspec.yaml', 'pubspec.lock', 'analysis_options.yaml', '.github/workflows/ci.yml']
+  pull_request:
+    paths: ['lib/**', 'test/**', 'assets/**', 'web/**', 'android/**', 'ios/**', 'pubspec.yaml', 'pubspec.lock', 'analysis_options.yaml', '.github/workflows/ci.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-checks-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.47.9'
+          channel: stable
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build web --no-pub --no-web-resources-cdn --no-wasm-dry-run
