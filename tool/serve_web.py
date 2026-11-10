@@ -41,6 +41,7 @@ class PreviewHandler(SimpleHTTPRequestHandler):
     def translate_path(self, path):
         path = urlsplit(path).path
         path = re.sub(r'^/preview/[a-f0-9]{12}/', '/', path)
+        path = re.sub(r'^/app/', '/', path)
         return super().translate_path(path)
 
     def send_text(self, text, mime):
@@ -67,20 +68,26 @@ class PreviewHandler(SimpleHTTPRequestHandler):
             self.send_error(405)
             return
         prefix = f'/preview/{version()}/'
-        if path in ('/', '/index.html'):
+        if path == '/':
+            self.send_text((BUILD / 'download.html').read_text(encoding='utf-8'), 'text/html')
+            return
+        if path in ('/download.html', '/index.html', '/app'):
             self.send_response(302)
-            self.send_header('Location', prefix)
+            destination = '/app/' if path == '/app' else '/'
+            query = urlsplit(self.path).query
+            self.send_header('Location', destination + ('?' + query if query else ''))
             self.end_headers()
             return
         match = re.fullmatch(r'/preview/([a-f0-9]{12})/(.*)', path)
-        if match and match[2] in ('', 'index.html'):
-            if match[1] != version():
+        if path in ('/app/', '/app/index.html') or (match and match[2] in ('', 'index.html')):
+            if match and match[1] != version():
                 self.send_response(302)
                 self.send_header('Location', prefix)
                 self.end_headers()
                 return
             html = (BUILD / 'index.html').read_text(encoding='utf-8')
-            html = re.sub(r'<base href="[^"]*"', f'<base href="{prefix}"', html)
+            base = prefix if match else '/app/'
+            html = re.sub(r'<base href="[^"]*"', f'<base href="{base}"', html)
             # Retire only the old Flutter worker for this app; keep all account
             # storage and cookies. Other workers on this origin are untouched.
             cleanup = '''<script>

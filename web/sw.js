@@ -5,7 +5,7 @@ self.addEventListener('push', event => {
   try { payload = event.data?.json() ?? {}; } catch { payload = { body: event.data?.text() ?? '' }; }
   if (!payload || typeof payload !== 'object') payload = {};
   const id = Number.isSafeInteger(payload.reminderId) && payload.reminderId > 0 ? payload.reminderId : null;
-  const url = id ? `/?reminder=${id}` : '/';
+  const url = id ? `/app/?reminder=${id}` : '/app/';
   const tag = typeof payload.tag === 'string' && payload.tag ? payload.tag : undefined;
   event.waitUntil((async () => {
     await self.registration.showNotification(typeof payload.title === 'string' && payload.title.trim() ? payload.title : '下班王 · 到站提醒', {
@@ -22,11 +22,11 @@ self.addEventListener('push', event => {
 });
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const candidate = new URL(event.notification.data?.url ?? '/', self.location.origin);
-  const target = candidate.origin === self.location.origin && candidate.pathname === '/' ? candidate.href : new URL('/', self.location.origin).href;
+  const candidate = new URL(event.notification.data?.url ?? '/app/', self.location.origin);
+  const target = candidate.origin === self.location.origin && candidate.pathname === '/app/' ? candidate.href : new URL('/app/', self.location.origin).href;
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    const existing = windows.find(c => new URL(c.url).origin === self.location.origin && !new URL(c.url).pathname.startsWith('/admin'));
+    const existing = windows.find(c => new URL(c.url).origin === self.location.origin && new URL(c.url).pathname.startsWith('/app/'));
     if (existing) { await existing.navigate(target); return existing.focus(); }
     return self.clients.openWindow(target);
   })());
