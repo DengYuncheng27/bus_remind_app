@@ -1,4 +1,6 @@
 import threading
+import tempfile
+from pathlib import Path
 import unittest
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
@@ -9,6 +11,42 @@ from serve_web import PreviewHandler
 class QuietHandler(PreviewHandler):
     def log_message(self, *_):
         pass
+
+
+class PageRoutingTests(unittest.TestCase):
+    def test_landing_app_assets_and_old_download_route(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, content in {
+                'download.html': '<a href="/app/">打开网页版</a>',
+                'index.html': '<base href="/"><body><script src="flutter_bootstrap.js"></script></body>',
+                'flutter_bootstrap.js': '_flutter.loader.load({});',
+                'main.dart.js': 'client-code',
+                'manifest.json': '{"start_url":"/app/","scope":"/app/"}',
+            }.items():
+                (root / name).write_text(content, encoding='utf-8')
+            with patch('serve_web.BUILD', root):
+                server = ThreadingHTTPServer(('127.0.0.1', 0), QuietHandler)
+                worker = threading.Thread(target=server.serve_forever, daemon=True)
+                worker.start()
+                try:
+                    def get(path):
+                        conn = HTTPConnection('127.0.0.1', server.server_port, timeout=3)
+                        conn.request('GET', path)
+                        response = conn.getresponse()
+                        result = response.status, dict(response.getheaders()), response.read().decode()
+                        conn.close()
+                        return result
+                    self.assertIn('打开网页版', get('/')[2])
+                    self.assertIn('<base href="/app/"', get('/app/')[2])
+                    self.assertEqual(get('/app/main.dart.js')[2], 'client-code')
+                    self.assertEqual(get('/download.html')[0], 302)
+                    self.assertEqual(get('/download.html')[1]['Location'], '/')
+                    self.assertEqual(get('/app?reminder=42')[1]['Location'], '/app/?reminder=42')
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    worker.join()
 
 
 class ProxyTests(unittest.TestCase):

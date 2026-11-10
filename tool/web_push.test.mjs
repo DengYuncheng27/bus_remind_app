@@ -23,13 +23,29 @@ test('worker displays push with a safe deep link and never navigates admin windo
   const handlers = {}, shown = [], opened = [];
   const self = { location: { origin: 'https://bus.example.com' }, addEventListener: (n, h) => handlers[n] = h,
     registration: { showNotification: async (...args) => shown.push(args) },
-    clients: { matchAll: async () => [{ url:'https://bus.example.com/admin/' }], openWindow: async url => opened.push(url) } };
+    clients: { matchAll: async () => [{ url:'https://bus.example.com/admin/' }, { url:'https://bus.example.com/' }], openWindow: async url => opened.push(url) } };
   vm.runInNewContext(readFileSync(new URL('../web/sw.js', import.meta.url),'utf8'), { self, URL });
   let pending;
   handlers.push({ data: { json: () => ({ title:'到站提醒', body:'还有两站', reminderId:42, url:'https://evil.example/' }) }, waitUntil: p => pending=p });
   await pending;
-  assert.equal(shown[0][1].data.url,'/?reminder=42');
+  assert.equal(shown[0][1].data.url,'/app/?reminder=42');
   handlers.notificationclick({ notification:{data:{url:'https://evil.example/'},close(){}},waitUntil:p=>pending=p });
   await pending;
-  assert.deepEqual(opened,['https://bus.example.com/']);
+  assert.deepEqual(opened,['https://bus.example.com/app/']);
+});
+
+test('notification click focuses the app and preserves its reminder without navigating the landing page', async () => {
+  const handlers = {}, navigated = [];
+  let focused = false;
+  const self = { location: { origin: 'https://bus.example.com' }, addEventListener: (n, h) => handlers[n] = h,
+    clients: { matchAll: async () => [
+      { url: 'https://bus.example.com/', navigate: () => assert.fail('landing page must stay open') },
+      { url: 'https://bus.example.com/app/', navigate: async url => navigated.push(url), focus: async () => focused = true },
+    ], openWindow: () => assert.fail('reuse the existing app window') } };
+  vm.runInNewContext(readFileSync(new URL('../web/sw.js', import.meta.url), 'utf8'), { self, URL });
+  let pending;
+  handlers.notificationclick({ notification: { data: { url: '/app/?reminder=42' }, close() {} }, waitUntil: p => pending = p });
+  await pending;
+  assert.deepEqual(navigated, ['https://bus.example.com/app/?reminder=42']);
+  assert.equal(focused, true);
 });
