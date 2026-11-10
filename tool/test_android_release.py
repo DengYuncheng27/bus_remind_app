@@ -1,9 +1,20 @@
 import unittest
+import base64
 
-from android_release import check_upgrade, validate_apk, validate_patch_files, version_info
+from android_release import check_upgrade, validate_apk, validate_patch_files, validate_shorebird_config, version_info
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_compiled_shorebird_config_accepts_injected_key_and_rejects_settings_changes(self):
+        source = '# Config\napp_id: test-app\nauto_update: false\n'
+        compiled = 'app_id: test-app\nauto_update: false\npatch_public_key: ' + base64.b64encode(b'x' * 64).decode() + '\n'
+        validate_shorebird_config(compiled, source)
+        for invalid in [source, compiled.replace('test-app', 'wrong-app'),
+                        compiled.replace('false', 'true'), compiled + 'base_url: https://other.example\n',
+                        compiled + 'auto_update: false\n', compiled.replace(base64.b64encode(b'x' * 64).decode(), '???')]:
+            with self.subTest(config=invalid), self.assertRaises(ValueError):
+                validate_shorebird_config(invalid, source)
+
     def test_patch_rejects_native_assets_dependencies_and_version_changes(self):
         validate_patch_files(['lib/screens/home_screen.dart', 'test/app_updates_test.dart'])
         for path in ['android/app/build.gradle.kts', 'assets/icon.png',
