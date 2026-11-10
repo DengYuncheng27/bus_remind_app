@@ -28,8 +28,7 @@ class _ReminderEditorState extends State<ReminderEditor> {
   List<Json> cities = [], routes = [], stops = [], channels = [];
   Json? city, route, stop;
   int step = 0, before = 3;
-  bool notifyAgain = false;
-  int notificationInterval = 2, notificationLimit = 3;
+  int notificationInterval = 2, notificationLimit = 1;
   final selectedChannels = <int>{};
   bool deliveryChanged = false;
   bool loading = true, busy = false, searched = false;
@@ -49,9 +48,7 @@ class _ReminderEditorState extends State<ReminderEditor> {
       );
       before = r['stations_before'];
       notificationInterval = r['repeat_interval_minutes'] as int? ?? 2;
-      final limit = r['max_notifications_per_bus'] as int? ?? 1;
-      notifyAgain = limit > 1;
-      notificationLimit = notifyAgain ? limit : 3;
+      notificationLimit = r['max_notifications_per_bus'] as int? ?? 1;
       repeat = RepeatSchedule.fromReminder(r);
       start = parseTime(r['window_start'], start);
       end = parseTime(r['window_end'], end);
@@ -165,7 +162,7 @@ class _ReminderEditorState extends State<ReminderEditor> {
         'windowStart': clockText(start),
         'windowEnd': clockText(end),
         'schedule': repeat.toJson(),
-        'maxNotificationsPerBus': notifyAgain ? notificationLimit : 1,
+        'maxNotificationsPerBus': notificationLimit,
         'repeatIntervalMinutes': notificationInterval,
         if (!editing || deliveryChanged)
           'channelIds': selectedChannels.toList(),
@@ -454,20 +451,26 @@ class _ReminderEditorState extends State<ReminderEditor> {
                       start.hour * 60 + start.minute)
                     const Text('结束时间为次日', style: TextStyle(color: green)),
                   const Divider(),
-                  SwitchListTile.adaptive(
-                    key: const ValueKey('notify-again'),
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('再次提醒'),
-                    subtitle: Text(
-                      notifyAgain ? '同一辆车仍在提醒范围内时，再提醒你' : '同一辆车只提醒一次',
-                    ),
-                    value: notifyAgain,
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    key: const ValueKey('notification-limit'),
+                    initialValue: notificationLimit,
+                    decoration: const InputDecoration(labelText: '同一辆车最多提醒'),
+                    items: [
+                      for (var value = 1; value <= 10; value++)
+                        DropdownMenuItem(value: value, child: Text('$value 次')),
+                    ],
                     onChanged: busy
                         ? null
-                        : (value) => setState(() => notifyAgain = value),
+                        : (value) => setState(() => notificationLimit = value!),
                   ),
-                  if (notifyAgain) ...[
-                    const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '每个提醒时段内分别计次，包含第一次提醒。仅在车辆仍处于提醒范围内时发送，最多 10 次；不同车辆分别计次。',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF66756C)),
+                  ),
+                  if (notificationLimit > 1) ...[
+                    const SizedBox(height: 16),
                     DropdownButtonFormField<int>(
                       key: const ValueKey('notification-interval'),
                       initialValue: notificationInterval,
@@ -484,30 +487,8 @@ class _ReminderEditorState extends State<ReminderEditor> {
                           : (value) =>
                                 setState(() => notificationInterval = value!),
                     ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<int>(
-                      key: const ValueKey('notification-limit'),
-                      initialValue: notificationLimit,
-                      decoration: const InputDecoration(labelText: '同一辆车最多提醒'),
-                      items: [
-                        for (var value = 2; value <= 10; value++)
-                          DropdownMenuItem(
-                            value: value,
-                            child: Text('$value 次'),
-                          ),
-                      ],
-                      onChanged: busy
-                          ? null
-                          : (value) =>
-                                setState(() => notificationLimit = value!),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      '总次数包含第一次提醒。仅在提醒时段内、车辆满足到站条件时发送；不同车辆分别计次。',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF66756C)),
-                    ),
-                    const SizedBox(height: 12),
                   ],
+                  const SizedBox(height: 12),
                   const Divider(),
                   ListTile(
                     key: const ValueKey('delivery-settings'),
