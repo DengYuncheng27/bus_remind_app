@@ -1,0 +1,38 @@
+# 下班王 Flutter：协作与交付规则
+
+## 入口与范围
+- 本仓库负责 Flutter Android / Web/PWA / iOS；API、SQLite、提醒任务和 React 后台在相邻 `../bug_reminder`。
+- 新会话先读本文件。分支、PR 与 Web 发布读本仓库 `docs/DEVELOPMENT_WORKFLOW.md`；Android 发版读 `docs/RELEASING.md`。涉及后端时再按需读相邻 BusReminder 仓库文档。
+- 当前版本查 `pubspec.yaml` 与 GitHub Releases；线上部署状态查部署记录，不靠历史聊天或文档版本号推断。
+
+## 快速交付约定
+- 所有开发使用短期分支，默认 `codex/<任务名>`；禁止在 main 提交或直接推送。存在其他会话改动时使用 worktree，保留原工作区。
+- 分支推送后创建 GitHub PR，CI 通过、自审后 Squash merge 到 main；合并后删除分支，不建立长期 develop。执行 `git config core.hooksPath .githooks` 启用本地保护。
+- main 启用 GitHub 分支保护：必须 PR、稳定的 `CI` 检查通过且分支最新，禁止 force push/删除。单人维护不强制第二人审批，作者可自审合并。
+- 小改动只解决用户当前问题，不顺带重构、扩建自动化或补大篇设计。先交付可用结果，额外工程化仅在任务需要时做。
+- `rg` 定位后读相关片段，少输出完整文件和日志。优先本地源码与现有脚本，避免无目标的网络研究。
+- 独立读取批量执行；有依赖的修改与发布顺序执行。不默认使用子代理。
+- 检查通过后仅因新修改、失败或明确的未解决问题重跑。日志留在忽略目录 `output/`，对话只报摘要。
+- 用户已授权的步骤连续完成，不反复确认；不要把历史一次发布解释为未来所有代码修改都要上线。
+- 开始和提交前检查 Git 状态，保留其他会话修改；只提交自己负责的文件。发布锁定 commit，禁止将另一会话未验证的改动顺带打包。
+- 收尾分清本地修改、提交、推送、Release 和线上部署；一分钟以上工作简短汇报实际进展。
+
+## 检查与构建
+- 文档/纯静态下载页：差异与链接/页面检查即可，不跑无关测试、不重打 APK。
+- Dart 逻辑/UI：运行分析、相关测试，必要时检查对应页面。正式 Android 发版由现有 Actions 执行完整检查；本地已验证同一 commit 时不再无条件重复整套构建。
+- Web 专属修改只构建 Web；Android 原生专属修改只构建 Android。共享 Dart 修改按本次发布目标决定，不默认同时发所有平台。
+- 新源码版本构建新产物；仅迁移分发位置时复用已验证且来源明确的原安装包。
+- 同一源码、锁文件、SDK、编译参数和签名一致才能复用构建；记录 hash 和来源 revision，不按“文件存在”判断产物可用。
+
+## 发布不变量
+- 用户于 2026-11-10 授权：Web 相关 PR 合并 main 后，main 的 CI 成功即自动部署网页版。合并即授权 Web 上线，普通分支、纯文档、仅测试或 Android/iOS 原生专属改动不触发 Web 部署。
+- Android 仍需用户明确发版后，锁定范围、递增版本与 build number、打 tag，并完成 Actions 签名、Release 和下载验证；Web 合并不自动发布 APK。
+- Web CD 使用同一次 CI 的构建产物、专用客户端权限 SSH key、主机公钥校验及与后端共用的服务器锁；复用并校验线上后端/管理后台产物及原 revision，拒绝过期快照，不从本机其他仓库重新构建服务端。
+- 当前 Android 更新方式是用户从官网/GitHub 下载最新版覆盖安装，持续保持包名和签名；尚无应用内更新提示或自动更新。Web/PWA 与后端按各自范围单独部署，不因提交代码或 Android 发版顺带上线。
+- APK 全部走本仓库 GitHub Releases，不放 Git，不由业务服务器托管或代理；下载页使用固定 latest 附件链接。
+- `.github/workflows/android-release.yml` 是 Android 正式发布入口。`pubspec.yaml` 版本及 build number 同时递增，tag 与版本匹配；公开版本不覆盖、不移动 tag。
+- 原 release keystore 已配置为四项 `ANDROID_*` Actions Secrets。持续复用签名；`tool/android-signing.sha256` 是公开证书指纹，不是私钥。
+- 密钥不得进入源码、Dart 编译参数、日志或聊天。凭据问题使用已有凭据管理，不新增从历史聊天/session 抽取密码的脚本。
+- Web/PWA 保持主站域名和 `/sw.js` 作用域，保护已有登录和通知订阅。Android 发布无需同步重启后端。
+- API 依赖改动先发布兼容旧客户端的后端，再发布客户端。iOS 原生发布另需 Apple 环境；不能把 APK/IPA 上传完成说成真机验收通过。
+- 2026-11-09 的性能复盘：后端全测约 5 秒，主要浪费来自调查过宽、范围扩张、重复检查和上下文膨胀。按影响面执行，不靠删除必要测试提速。

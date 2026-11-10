@@ -1,0 +1,5 @@
+#!/bin/sh
+if [ "$(git symbolic-ref --quiet --short HEAD)" = main ]; then
+  echo '请先创建开发分支（git switch -c codex/<task>），通过 PR 合并到 main。' >&2
+  exit 1
+fi
