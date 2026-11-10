@@ -1,5 +1,6 @@
 """Validate and package an Android release; never uploads files or reads signing secrets."""
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -52,6 +53,31 @@ def validate_patch_files(files):
         raise ValueError('Publish a full APK for native/dependency/asset changes: ' + ', '.join(blocked))
 
 
+def validate_shorebird_config(compiled, source):
+    # The pinned SDK emits flat scalar YAML and injects patch_public_key.
+    # Compare runtime settings, not comments/formatting or the injected key.
+    def fields(text):
+        values = {}
+        for line in text.splitlines():
+            if not line.strip() or line.lstrip().startswith('#'):
+                continue
+            match = re.fullmatch(r'([a-z_]+):\s*(\S.*?)\s*', line)
+            if not match or match[1] in values:
+                raise ValueError('Unexpected or duplicate Shorebird configuration field')
+            values[match[1]] = match[2].strip('\"\'')
+        return values
+    actual, expected = fields(compiled), fields(source)
+    public_key = actual.pop('patch_public_key', '')
+    if actual != expected or actual.get('auto_update') != 'false':
+        raise ValueError('APK Shorebird runtime settings do not match this release')
+    try:
+        key = base64.b64decode(public_key, validate=True)
+    except ValueError as error:
+        raise ValueError('APK has an invalid patch verification key') from error
+    if len(key) < 32:
+        raise ValueError('APK is missing a patch verification key')
+
+
 def check_patch(release_version):
     if not re.fullmatch(r'\d+\.\d+\.\d+\+[1-9]\d*', release_version or ''):
         raise ValueError('Use an explicit release version, e.g. 0.3.7+10; never latest')
@@ -84,8 +110,9 @@ def package_release(info, apk, build_tools, output):
     with zipfile.ZipFile(apk) as archive:
         validate_apk(info, badging, certificates, signer, archive.namelist())
         config = archive.read('assets/flutter_assets/shorebird.yaml').decode('utf-8')
-        if config != (ROOT / 'shorebird.yaml').read_text(encoding='utf-8'):
-            raise ValueError('APK Shorebird configuration does not match this release')
+        validate_shorebird_config(config, (ROOT / 'shorebird.yaml').read_text(encoding='utf-8'))
+        if b'shorebird_check_for_downloadable_update' not in archive.read('lib/arm64-v8a/libflutter.so'):
+            raise ValueError('APK does not contain the Shorebird update engine')
     output.mkdir(parents=True, exist_ok=True)
     target = output / ASSET
     shutil.copyfile(apk, target)

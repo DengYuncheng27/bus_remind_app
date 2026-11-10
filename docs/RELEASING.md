@@ -2,7 +2,7 @@
 
 ## 当前状态与目标
 
-Android 安装包由 GitHub Releases 分发，最新正式版本以 Release 为准。从 `0.3.7+10` 开始接入 Shorebird 与应用内版本检查：启动后后台检查，设置内可手动重试；完整包由用户下载覆盖安装，小更新下载后在下次进程重启生效。此前安装包必须先完整升级一次。
+Android 安装包由 GitHub Releases 分发，最新正式版本以 Release 为准。从 `0.3.8+11` 开始接入 Shorebird 与应用内版本检查：启动后后台检查，设置内可手动重试；完整包由用户下载覆盖安装，小更新下载后在下次进程重启生效。此前安装包必须先完整升级一次。`0.3.7+10` 已注册 Shorebird 基础版本，但因打包配置校验过严未发布 GitHub APK，保留原 tag，不覆盖或移动。
 
 `.github/workflows/android-release.yml` 将 Android 分发从业务部署中拆出。原生产签名已配置到本仓库 Actions Secrets，后续推送版本 tag 即可触发发布。首次迁移直接上传经签名和哈希核验的现有 APK，保留原始 tag 对应的代码，不重编历史版本。
 
