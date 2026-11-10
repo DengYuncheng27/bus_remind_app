@@ -1,7 +1,7 @@
 name: xiabanwang
 description: 简洁的公交到站提醒客户端
 publish_to: none
-version: 0.3.6+9
+version: 0.3.7+10
 environment:
   sdk: '>=3.13.0 <4.0.0'
 dependencies:
@@ -17,6 +17,8 @@ dependencies:
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
   url_launcher: ^6.3.3
+  package_info_plus: ^9.0.1
+  shorebird_code_push: ^2.0.7
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -25,3 +27,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/app-icon.png
+    - shorebird.yaml

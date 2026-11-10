@@ -4,6 +4,16 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      patch_version:
+        description: '热更目标完整版本（如 0.3.7+10）；发完整包时留空并选择 tag'
+        type: string
+        default: ''
+      patch_track:
+        description: '补丁通道；先 staging 验证，再发布 stable'
+        type: choice
+        options: [staging, stable]
+        default: staging
 
 # Serialize releases so an older build cannot race the latest release.
 concurrency:
@@ -19,20 +29,29 @@ env:
 
 jobs:
   build:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.ref == 'refs/heads/main' && inputs.patch_version != '')
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Check version and release safeguards
         env:
           RELEASE_TAG: ${{ github.ref_name }}
           JPUSH_APP_KEY: ${{ vars.JPUSH_APP_KEY }}
+          PATCH_VERSION: ${{ inputs.patch_version }}
+          SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
         run: |
           test -n "$JPUSH_APP_KEY" || { echo 'Configure JPUSH_APP_KEY before publishing.' >&2; exit 1; }
-          python3 tool/android_release.py version --tag "$RELEASE_TAG"
+          test -n "$SHOREBIRD_TOKEN" || { echo 'Configure SHOREBIRD_TOKEN before publishing.' >&2; exit 1; }
+          if [ -n "$PATCH_VERSION" ]; then
+            test "$GITHUB_REF" = refs/heads/main
+            python3 tool/android_release.py patch --release-version "$PATCH_VERSION"
+          else
+            python3 tool/android_release.py version --tag "$RELEASE_TAG"
+          fi
           python3 -m unittest discover -s tool -p test_android_release.py
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
@@ -73,13 +92,31 @@ jobs:
                         keyAlias=os.environ['KEY_ALIAS'], keyPassword=os.environ['KEY_PASSWORD'])
           Path('android/key.properties').write_text(''.join(k + '=' + prop(v) + '\n' for k, v in values.items()))
           PY
-      - name: Build and verify signed APK
+      - uses: shorebirdtech/setup-shorebird@8b1059ddb56a926f0146edf4133cc647775c162f # v1
+      - name: Publish a verified Dart patch
+        if: inputs.patch_version != ''
         env:
+          SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+          PATCH_VERSION: ${{ inputs.patch_version }}
+          PATCH_TRACK: ${{ inputs.patch_track }}
+          JPUSH_APP_KEY: ${{ vars.JPUSH_APP_KEY }}
+        run: |
+          shorebird patch android --release-version "$PATCH_VERSION" --track "$PATCH_TRACK" \
+            -- --dart-define=DEMO=false \
+            --dart-define=API_BASE_URL=https://bus.su7.space \
+            --dart-define=JPUSH_APP_KEY="$JPUSH_APP_KEY" \
+            --dart-define=JPUSH_PRODUCTION=true
+          printf 'Patch source: %s; base: %s; track: %s\n' "$GITHUB_SHA" "$PATCH_VERSION" "$PATCH_TRACK" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build and verify signed APK
+        if: inputs.patch_version == ''
+        env:
+          SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
           JPUSH_APP_KEY: ${{ vars.JPUSH_APP_KEY }}
         run: |
-          flutter build apk --release --target-platform android-arm64 \
-            --dart-define=DEMO=false \
+          shorebird release android --flutter-version "$FLUTTER_VERSION" \
+            --artifact apk --target-platform android-arm64 \
+            -- --dart-define=DEMO=false \
             --dart-define=API_BASE_URL=https://bus.su7.space \
             --dart-define=JPUSH_APP_KEY="$JPUSH_APP_KEY" \
             --dart-define=JPUSH_PRODUCTION=true
@@ -89,6 +126,7 @@ jobs:
         if: always()
         run: rm -f android/key.properties "$RUNNER_TEMP/android-release.jks"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.patch_version == ''
         with:
           name: android-release
           path: build/release/
@@ -96,6 +134,7 @@ jobs:
           retention-days: 7
 
   publish:
+    if: github.ref_type == 'tag' && inputs.patch_version == ''
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 10

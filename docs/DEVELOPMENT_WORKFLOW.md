@@ -43,4 +43,4 @@ PR 和普通分支无部署凭据。严禁关闭主机公钥校验、把秘密�
 
 GitHub 产物保留 14 天。成功部署在服务器记录 `deployment.json`、`release-manifest.json`，包含后端、管理后台和客户端各自 commit 与产物哈希。以 `Deploy Web production` 和服务器记录确认上线，不把“PR 合并”当作“已部署”。
 
-跨仓库 API 改动先合并并部署兼容后端，再合并客户端 PR。APK 仍只通过 GitHub Releases 分发，不因 Web 发布修改 Android 签名或提供应用内自动更新。
+跨仓库 API 改动先合并并部署兼容后端，再合并客户端 PR。APK 仍只通过 GitHub Releases 分发，不因 Web 发布修改 Android 签名。Android 完整包与 Shorebird 补丁的发布、验证见 `RELEASING.md`；Web 合并不自动向 Android 发布补丁。

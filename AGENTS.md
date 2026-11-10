@@ -36,7 +36,8 @@
 - 用户于 2026-11-10 授权：Web 相关 PR 合并 main 后，main 的 CI 成功即自动部署网页版。合并即授权 Web 上线，普通分支、纯文档、仅测试或 Android/iOS 原生专属改动不触发 Web 部署。
 - Android 仍需用户明确发版后，锁定范围、递增版本与 build number、打 tag，并完成 Actions 签名、Release 和下载验证；Web 合并不自动发布 APK。
 - Web CD 使用同一次 CI 的构建产物、专用客户端权限 SSH key、主机公钥校验及与后端共用的服务器锁；复用并校验线上后端/管理后台产物及原 revision，拒绝过期快照，不从本机其他仓库重新构建服务端。
-- 当前 Android 更新方式是用户从官网/GitHub 下载最新版覆盖安装，持续保持包名和签名；尚无应用内更新提示或自动更新。Web/PWA 与后端按各自范围单独部署，不因提交代码或 Android 发版顺带上线。
+- Android 同时提供应用内完整包检查与 Shorebird 热更新。完整包从官网/GitHub 下载覆盖安装，保持包名和原签名；带 Shorebird 的基础包才能接收补丁。补丁后台下载、下次进程重启生效，不静默安装 APK。Web/PWA 与后端按各自范围单独部署。
+- 正式 Android 包必须用 Shorebird 构建，保留 `shorebird.yaml` 的 app_id；补丁必须指定已发布的基础版本，先 staging 验证，再发 stable。原生、依赖、包内资源或基础版本变化走完整 APK，不绕过 Shorebird 差异检查。CI 密钥仅保存在 GitHub `SHOREBIRD_TOKEN` Secret。
 - APK 全部走本仓库 GitHub Releases，不放 Git，不由业务服务器托管或代理；下载页使用固定 latest 附件链接。
 - `.github/workflows/android-release.yml` 是 Android 正式发布入口。`pubspec.yaml` 版本及 build number 同时递增，tag 与版本匹配；公开版本不覆盖、不移动 tag。
 - 原 release keystore 已配置为四项 `ANDROID_*` Actions Secrets。持续复用签名；`tool/android-signing.sha256` 是公开证书指纹，不是私钥。

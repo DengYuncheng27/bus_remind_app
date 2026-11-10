@@ -2,7 +2,7 @@
 
 ## 当前状态与目标
 
-2026-11-09 将正式 Android 安装包迁往公开仓库 GitHub Releases。`v0.3.4`（build 7）是当前稳定版，约 23 MB，包含旧账号找回密码及邮件发送失败提示；`v0.3.0`、`v0.3.1`、`v0.3.2` 保留历史归档。客户端没有应用内版本检查，也没有静默更新功能。
+Android 安装包由 GitHub Releases 分发，最新正式版本以 Release 为准。从 `0.3.7+10` 开始接入 Shorebird 与应用内版本检查：启动后后台检查，设置内可手动重试；完整包由用户下载覆盖安装，小更新下载后在下次进程重启生效。此前安装包必须先完整升级一次。
 
 `.github/workflows/android-release.yml` 将 Android 分发从业务部署中拆出。原生产签名已配置到本仓库 Actions Secrets，后续推送版本 tag 即可触发发布。首次迁移直接上传经签名和哈希核验的现有 APK，保留原始 tag 对应的代码，不重编历史版本。
 
@@ -49,7 +49,7 @@ flowchart LR
 4. 全部校验成功后上传草稿 Release，三个文件上传成功才公开并设为 latest：`xiabanwang-android-arm64.apk`、`SHA256SUMS`、`android-release.json`。
 5. 通过匿名浏览器下载一次，并在已安装旧版的 Android 真机验证覆盖升级和账号保留。
 
-工作流手动运行时必须选择 tag，选择 main 不会发布。失败留下的草稿可重新运行；已公开版本不可覆盖，修复必须递增版本。工作流校验包名、APK 内版本、原签名证书以及 Flutter ARM64 运行库，禁止误发 debug 签名或错误架构。
+完整包手动运行时选择 tag，`patch_version` 留空。失败留下的草稿可重试；已公开版本不可覆盖，完整包必须递增版本。工作流校验包名、APK 内版本、原签名证书、Flutter ARM64 运行库及打包的 Shorebird 配置。
 
 构建固定 Flutter 3.47.9、Java 17 和 Android build-tools 36.0.0，依赖遵循已提交的 `pubspec.lock`；Actions 固定提交 SHA。升级这些版本应先验证构建。
 
@@ -61,7 +61,18 @@ flowchart LR
 
 后端部署检查会拒绝指向不存在 Release 的新下载页。旧版 `/downloads/xiabanwang-0.3.0.apk`、`0.3.1.apk`、`0.3.2.apk` 由 API 返回 302，跳转至各自版本的 GitHub 原始附件；`/downloads/xiabanwang-latest.apk` 跳转至最新稳定版。旧 `.apk.sha256` 地址跳转至相应 Release 的 `SHA256SUMS`。业务服务器只返回跳转响应，不转发 APK 内容。
 
-稳定入口不携带版本号；每次发布只是更新 GitHub 的 latest，网站不需要重新部署。`android-release.json` 记录固定版本下载地址、SHA-256、包大小、versionCode、源代码 revision 和签名指纹，可用于后续更新功能；当前 App 尚未读取它。
+稳定入口不携带版本号；每次发布只是更新 GitHub 的 latest，网站不需要重新部署。`android-release.json` 记录固定版本下载地址、SHA-256、包大小、versionCode、源代码 revision 和签名指纹。App 读取它并与设备实际安装的 build number 比较，只接受本仓库、对应 tag 的 APK 地址；GitHub 连接失败不阻塞启动或 Shorebird 检查。
+
+## Shorebird 与完整包并行
+
+- `shorebird.yaml` 的 app_id 是公开标识，不可重新初始化替换；CI 使用 GitHub Secret `SHOREBIRD_TOKEN`，来自组织的 Developer 服务账号。
+- 完整包通过 `shorebird release android --flutter-version 3.47.9 --artifact apk --target-platform android-arm64` 构建，沿用原签名及原有编译参数。不要使用普通 `flutter build` 发布正式包，否则没有热更引擎。
+- `auto_update: false` 由应用更新服务接管：启动时非阻塞检查 stable 补丁并下载，设置可重试。完整包与补丁独立检查，失败互不阻塞；不强制结束应用，不静默安装 APK。
+- 补丁代码先按 PR 流程合入 main。保持目标基础包的版本及 build number 不变；在 Android release 工作流选择 main，填写明确的 `patch_version`（如 `0.3.7+10`），先选 staging。工作流记录源 commit、基础版本和通道，不修改 GitHub latest 或生成新 APK Release。
+- 在安装该基础包的设备上通过 Shorebird staging 预览验证补丁下载、重启生效和提醒功能后，再从同一源 commit 发布 stable。工作流不使用 `--allow-native-diffs` / `--allow-asset-diffs` 等绕过选项。
+- 工具拒绝与基础 tag 相比发生 Android、包内资源、依赖或版本配置变化的补丁；这些改动发布完整 APK。当前入口只支持 main 对应的同一基础版本，需维护旧基础包时单独评估，不用 latest 猜测目标。
+- 升级完整 APK 时包含该源码版本全部修复，用户无需先补齐旧包的补丁；后续新补丁仍可接收。APK 安装不计 Shorebird 补丁安装额度。
+- 免费额度耗尽或 Shorebird 不可达时继续运行已安装版本，完整 APK 下载入口仍可用。
 
 ## 分工
 
