@@ -1,33 +1,115 @@
-name: Flutter checks
+name: Flutter CI and Web production
 
 on:
   push:
     branches: ['**']
-    paths: ['lib/**', 'test/**', 'assets/**', 'web/**', 'android/**', 'ios/**', 'pubspec.yaml', 'pubspec.lock', 'analysis_options.yaml', '.github/workflows/ci.yml']
   pull_request:
-    paths: ['lib/**', 'test/**', 'assets/**', 'web/**', 'android/**', 'ios/**', 'pubspec.yaml', 'pubspec.lock', 'analysis_options.yaml', '.github/workflows/ci.yml']
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: flutter-checks-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  flutter:
+  plan:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      flutter: ${{ steps.plan.outputs.flutter }}
+      tools: ${{ steps.plan.outputs.tools }}
+      web: ${{ steps.plan.outputs.web }}
+      deploy: ${{ steps.plan.outputs.deploy }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 0
           persist-credentials: false
+      - id: plan
+        run: python3 tool/ci_plan.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  checks:
+    name: CI
+    needs: plan
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Require a successful check plan
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+        run: test "$PLAN_RESULT" = success
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: needs.plan.outputs.tools == 'true'
+        with:
+          node-version: '24'
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        if: needs.plan.outputs.flutter == 'true'
         with:
           flutter-version: '3.47.9'
           channel: stable
       - run: flutter pub get --enforce-lockfile
-      - run: flutter analyze
-      - run: flutter test
-      - run: flutter build web --no-pub --no-web-resources-cdn --no-wasm-dry-run
+        if: needs.plan.outputs.flutter == 'true'
+      - run: flutter analyze && flutter test
+        if: needs.plan.outputs.flutter == 'true'
+      - run: node --test tool/*.test.mjs
+        if: needs.plan.outputs.tools == 'true'
+      - run: python -m unittest discover -s tool -p 'test_*.py'
+        if: needs.plan.outputs.tools == 'true'
+      - name: Build production Web
+        if: needs.plan.outputs.web == 'true'
+        run: flutter build web --release --no-pub --no-web-resources-cdn --no-wasm-dry-run --dart-define=API_BASE_URL=https://bus.su7.space
+      - name: Package the tested Web commit
+        if: needs.plan.outputs.deploy == 'true'
+        run: python tool/web_release.py package --directory build/web-release
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: needs.plan.outputs.deploy == 'true'
+        with:
+          name: flutter-web-${{ github.sha }}
+          path: build/web-release/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Summarize checks
+        run: echo 'Selected Flutter/Web checks passed. Android is released separately through version tags.' >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy Web production
+    needs: [plan, checks]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.plan.outputs.deploy == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: flutter-web-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: flutter-web-${{ github.sha }}
+          path: build/web-release
+      - name: Deploy checked Web artifacts under the shared server lock
+        run: python tool/web_release.py deploy --directory build/web-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CD_SSH_PRIVATE_KEY: ${{ secrets.CD_SSH_PRIVATE_KEY }}
+          CD_SSH_KNOWN_HOSTS: ${{ secrets.CD_SSH_KNOWN_HOSTS }}
+          CD_SSH_HOST: ${{ vars.CD_SSH_HOST }}
+          CD_SSH_PORT: ${{ vars.CD_SSH_PORT }}
+          CD_SSH_USER: ${{ vars.CD_SSH_USER }}
