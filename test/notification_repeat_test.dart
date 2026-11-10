@@ -25,7 +25,6 @@ class RecordingApi extends DemoApi {
 }
 
 void main() {
-  final again = find.byKey(const ValueKey('notify-again'));
   final interval = find.byKey(const ValueKey('notification-interval'));
   final limit = find.byKey(const ValueKey('notification-limit'));
 
@@ -34,7 +33,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('提醒设置'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(again, 160);
+    await tester.scrollUntilVisible(limit, 160);
   }
 
   Future<void> select(WidgetTester tester, Finder field, String option) async {
@@ -46,7 +45,7 @@ void main() {
   }
 
   testWidgets(
-    'new reminder can enable repeat notifications with default 2 minutes and 3 total',
+    'new reminder defaults to one and can select a total count directly',
     (tester) async {
       final api = RecordingApi();
       await tester.pumpWidget(CommuteApp(api: api));
@@ -62,11 +61,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('鼓楼'));
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(again, 160);
-      expect(tester.widget<SwitchListTile>(again).value, isFalse);
+      await tester.scrollUntilVisible(limit, 160);
+      expect(find.text('1 次'), findsOneWidget);
+      expect(find.text('再次提醒'), findsNothing);
       expect(interval, findsNothing);
-      await tester.tap(again);
-      await tester.pumpAndSettle();
+      await select(tester, limit, '3 次');
       await tester.tap(find.text('保存提醒'));
       await tester.pumpAndSettle();
       expect(api.lastBody!['repeatIntervalMinutes'], 2);
@@ -77,7 +76,7 @@ void main() {
   );
 
   testWidgets(
-    'existing limits are preserved on unrelated edits and disabling saves one notification',
+    'existing limits are preserved and selecting one hides the interval',
     (tester) async {
       final api = RecordingApi();
       api.reminders.first.addAll({
@@ -85,7 +84,6 @@ void main() {
         'max_notifications_per_bus': 10,
       });
       await edit(tester, api);
-      expect(tester.widget<SwitchListTile>(again).value, isTrue);
       await tester.scrollUntilVisible(interval, 120);
       expect(find.text('每隔 60 分钟'), findsOneWidget);
       await tester.scrollUntilVisible(limit, 120);
@@ -96,9 +94,8 @@ void main() {
       expect(api.lastBody!['maxNotificationsPerBus'], 10);
       await tester.tap(find.text('提醒设置'));
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(again, 160);
-      await tester.tap(again);
-      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(limit, 160);
+      await select(tester, limit, '1 次');
       expect(interval, findsNothing);
       await tester.tap(find.text('保存提醒'));
       await tester.pumpAndSettle();
@@ -119,14 +116,11 @@ void main() {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       final api = RecordingApi();
       await edit(tester, api);
-      await tester.tap(again);
-      await tester.pumpAndSettle();
-      await select(tester, interval, '每隔 5 分钟');
       await select(tester, limit, '4 次');
+      await select(tester, interval, '每隔 5 分钟');
       api.failSave = true;
       await tester.tap(find.text('保存提醒'));
       await tester.pumpAndSettle();
-      expect(tester.widget<SwitchListTile>(again).value, isTrue);
       await tester.scrollUntilVisible(interval, 120);
       expect(find.text('每隔 5 分钟'), findsOneWidget);
       await tester.scrollUntilVisible(limit, 120);
@@ -138,8 +132,7 @@ void main() {
       expect(api.lastBody!['maxNotificationsPerBus'], 4);
       await tester.tap(find.text('提醒设置'));
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(again, 160);
-      expect(tester.widget<SwitchListTile>(again).value, isTrue);
+      await tester.scrollUntilVisible(limit, 160);
       await tester.scrollUntilVisible(interval, 120);
       expect(find.text('每隔 5 分钟'), findsOneWidget);
       await tester.scrollUntilVisible(limit, 120);
