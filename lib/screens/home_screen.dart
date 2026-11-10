@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../home_selection.dart';
 import '../palette.dart';
 import '../push.dart';
 import '../ui.dart';
@@ -24,10 +25,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final routeCache = <String, Json>{};
   List<Json>? reminders;
   Json? profile, realtime, route;
-  Json? tripOverride, returnTrip;
-  bool switchingDirection = false;
-  int directionRevision = 0;
   String? selectedId, account, error, vehicleError, pushIssue;
+  String? favoriteId;
+  bool autoSelectionPending = true, manualSelection = false;
   int tab = 0, requestRevision = 0;
   int? pendingPushReminder;
   bool loading = false, refreshing = false, foreground = true;
@@ -39,22 +39,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Json? get selected {
     for (final reminder in reminders ?? <Json>[]) {
       if ('${reminder['id']}' == selectedId) return reminder;
-    }
-    return null;
-  }
-
-  Json? get currentTrip => tripOverride ?? selected;
-
-  Json? get currentReminder {
-    if (tripOverride == null) return selected;
-    final trip = currentTrip;
-    if (trip == null) return null;
-    for (final r in reminders ?? <Json>[]) {
-      if (r['city_id'] == trip['city_id'] &&
-          r['line_id'] == trip['line_id'] &&
-          r['target_stop_id'] == trip['target_stop_id']) {
-        return r;
-      }
     }
     return null;
   }
@@ -87,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           !refreshing &&
           !loading &&
           selected != null) {
-        refreshVehicle();
+        load();
       } else {
         setState(() {});
       }
@@ -129,11 +113,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
+      autoSelectionPending = true;
+      manualSelection = false;
+    }
     foreground = state == AppLifecycleState.resumed;
     if (foreground && ModalRoute.of(context)?.isCurrent == true) load();
   }
 
-  Future<void> load() async {
+  Future<void> load({bool reselect = false}) async {
     if (loading || changingReminders.isNotEmpty) return;
     setState(() {
       loading = true;
@@ -147,8 +136,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             await widget.api.request('/api/me') as Map,
           );
           account = (profile?['id'] ?? profile?['email'])?.toString();
-          if (account != null && selectedId == null) {
-            selectedId = await widget.api.readHomeReminder(account!);
+          if (account != null && favoriteId == null) {
+            favoriteId = await widget.api.readHomeReminder(account!);
           }
         } catch (_) {
           /* Routes remain usable if profile/preferences are unavailable. */
@@ -157,16 +146,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() {
         reminders = list;
-        if (!list.any((r) => '${r['id']}' == selectedId)) {
-          directionRevision++;
-          switchingDirection = false;
-          tripOverride = null;
-          returnTrip = null;
-          selectedId = list.isEmpty
-              ? null
-              : '${list.firstWhere((r) => isOn(r['active']), orElse: () => list.first)['id']}';
+        favoriteId = fixedHomeReminder(list, favoriteId);
+        final previousId = selectedId;
+        if (!list.any((r) => '${r['id']}' == selectedId) ||
+            ((autoSelectionPending || reselect) && !manualSelection)) {
+          selectedId = selectHomeReminder(
+            list,
+            currentId: selectedId,
+            favoriteId: favoriteId,
+          );
+        }
+        autoSelectionPending = false;
+        if (previousId != selectedId) {
           realtime = null;
           route = null;
+          vehicleError = null;
         }
       });
       if (selected != null) {
@@ -190,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> refreshVehicle() async {
-    final reminder = currentTrip;
+    final reminder = selected;
     if (reminder == null) return;
     final revision = ++requestRevision;
     final routeKey = '${reminder['city_id']}:${reminder['line_id']}';
@@ -243,159 +237,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> choose(Json reminder) async {
+  Future<void> choose(Json reminder, {bool saveFavorite = false}) async {
     setState(() {
-      directionRevision++;
-      switchingDirection = false;
-      tripOverride = null;
-      returnTrip = null;
       selectedId = '${reminder['id']}';
+      manualSelection = true;
+      autoSelectionPending = false;
+      if (saveFavorite) favoriteId = selectedId;
       realtime = null;
       route = null;
       tab = 0;
     });
     final id = selectedId!;
     unawaited(refreshVehicle());
-    if (account != null) {
+    if (saveFavorite && account != null) {
       final owner = account!;
       preferenceWrite = preferenceWrite.then((_) async {
         try {
           await widget.api.saveHomeReminder(owner, id);
         } catch (_) {
-          if (mounted) notice(context, '已切换线路，但未能记住选择');
+          if (mounted) notice(context, '已切换线路，但未能保存首页常用');
         }
       });
       await preferenceWrite;
-    }
-  }
-
-  Future<Json?> pickDirectionItem(
-    String title,
-    List<Json> items,
-    String Function(Json) label,
-  ) => showModalBottomSheet<Json>(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    builder: (c) => SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(c).height * .75,
-        ),
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          children: [
-            Text(title, style: Theme.of(c).textTheme.headlineSmall),
-            const SizedBox(height: 12),
-            for (final item in items)
-              ListTile(
-                title: Text(label(item)),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.pop(c, item),
-              ),
-          ],
-        ),
-      ),
-    ),
-  );
-
-  Future<void> flipDirection() async {
-    final trip = currentTrip;
-    if (trip == null || switchingDirection) return;
-    final revision = ++directionRevision;
-    setState(() => switchingDirection = true);
-    try {
-      Json? next = returnTrip;
-      if (next == null) {
-        final results = objects(
-          await widget.api.data(
-            '/api/routes/search',
-            query: {'cityId': '${trip['city_id']}', 'q': '${trip['line_no']}'},
-          ),
-        );
-        if (!mounted || revision != directionRevision) return;
-        String number(dynamic n) => '$n'.replaceAll(RegExp(r'\s|路$'), '');
-        final candidates = <String, Json>{
-          for (final r in results)
-            if (r['lineId'] != null &&
-                r['lineId'] != trip['line_id'] &&
-                number(r['lineNo']) == number(trip['line_no']))
-              '${r['lineId']}': r,
-        }.values.toList();
-        if (candidates.isEmpty) throw ApiException('暂未找到这条线路的反方向，当前方向保持不变');
-        final exact = candidates
-            .where(
-              (r) =>
-                  route?['startStop'] != null &&
-                  route?['endStop'] != null &&
-                  r['endStop'] == route!['startStop'] &&
-                  r['startStop'] == route!['endStop'],
-            )
-            .toList();
-        final opposite = exact.length == 1
-            ? exact.single
-            : candidates.length == 1
-            ? candidates.single
-            : await pickDirectionItem(
-                '选择另一方向',
-                candidates,
-                (r) => '${r['startStop']} → ${r['endStop']}',
-              );
-        if (opposite == null || !mounted || revision != directionRevision) {
-          return;
-        }
-        final key = '${trip['city_id']}:${opposite['lineId']}';
-        final detail =
-            routeCache[key] ??
-            await widget.api.data(
-              '/api/routes/${Uri.encodeComponent(opposite['lineId'])}',
-              query: {'cityId': '${trip['city_id']}'},
-            ) as Json;
-        if (!mounted || revision != directionRevision) return;
-        routeCache[key] = detail;
-        final stops = objects(detail['stops'] ?? []);
-        if (stops.isEmpty) throw ApiException('反方向暂无站点数据，请稍后再试');
-        final matches = stops
-            .where(
-              (s) =>
-                  '${s['name']}'.trim() == '${trip['target_stop_name']}'.trim(),
-            )
-            .toList();
-        final stop = matches.length == 1
-            ? matches.single
-            : await pickDirectionItem(
-                '选择反方向上车站',
-                matches.isEmpty ? stops : matches,
-                (s) => '${s['name']}',
-              );
-        if (stop == null || !mounted || revision != directionRevision) return;
-        next = {
-          'city_id': trip['city_id'],
-          'city_name': trip['city_name'],
-          'line_no': trip['line_no'],
-          'line_id': opposite['lineId'],
-          'route_end_stop': detail['endStop'] ?? opposite['endStop'],
-          'target_stop_id': stop['id'],
-          'target_stop_name': stop['name'],
-        };
-      }
-      if (!mounted || revision != directionRevision) return;
-      setState(() {
-        returnTrip = Map.of(trip);
-        tripOverride = next;
-        realtime = null;
-        route = null;
-      });
-      await refreshVehicle();
-    } catch (e) {
-      if (mounted && revision == directionRevision) {
-        notice(context, e.toString());
-      }
-    } finally {
-      if (mounted && revision == directionRevision) {
-        setState(() => switchingDirection = false);
-      }
     }
   }
 
@@ -413,10 +276,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             shrinkWrap: true,
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
             children: [
-              Text('首页常用线路', style: Theme.of(context).textTheme.headlineSmall),
+              Text('切换线路', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 8),
               const Text(
-                '选好线路和上车站，下次打开直接看。',
+                '切换本次查看的线路；固定常用可在提醒中设置。',
                 style: TextStyle(color: Color(0xFF66756C)),
               ),
               const SizedBox(height: 16),
@@ -559,7 +422,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void selectTab(int value) {
+    final enteringHome = tab != 0 && value == 0;
     setState(() => tab = value);
+    if (enteringHome && !manualSelection) {
+      load(reselect: true);
+      return;
+    }
     if (value == 0 && !refreshing && realtime != null && isStale(realtime!)) {
       refreshVehicle();
     }
@@ -583,9 +451,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (tab < 2)
           IconButton(
             tooltip: tab == 0 ? '刷新车辆' : '刷新提醒',
-            onPressed: loading || refreshing
-                ? null
-                : () => tab == 0 ? refreshVehicle() : load(),
+            onPressed: loading || refreshing ? null : () => load(),
             icon: const Icon(Icons.refresh_rounded),
           ),
         const SizedBox(width: 8),
@@ -690,8 +556,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   );
 
   Widget ridePage() {
-    final reminder = currentTrip;
-    final linkedReminder = currentReminder;
+    final reminder = selected;
     return pageWidth(
       RefreshIndicator(
         onRefresh: load,
@@ -719,9 +584,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          '常用线路',
-                          style: TextStyle(
+                        Text(
+                          isCurrentReminder(reminder)
+                              ? '当前提醒 · ${reminder['window_start'] == null ? '全天' : timeWindow(reminder)}'
+                              : selectedId == favoriteId
+                              ? '常用线路'
+                              : '本次查看',
+                          style: const TextStyle(
                             color: Color(0xFF66756C),
                             fontSize: 12,
                           ),
@@ -746,21 +615,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ],
               ),
               const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      direction(reminder),
-                      style: const TextStyle(color: Color(0xFF66756C)),
-                    ),
-                  ),
-                  TextButton.icon(
-                    key: const ValueKey('flip-direction'),
-                    onPressed: switchingDirection ? null : flipDirection,
-                    icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-                    label: Text(switchingDirection ? '换向中…' : '换向'),
-                  ),
-                ],
+              Text(
+                direction(reminder),
+                style: const TextStyle(color: Color(0xFF66756C)),
               ),
               const SizedBox(height: 14),
               Row(
@@ -777,22 +634,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                     ),
                   ),
-                  if (linkedReminder == null)
-                    const Text(
-                      '此方向未设提醒',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF66756C)),
-                    )
-                  else
-                    TextButton(
-                      onPressed: () => editReminder(linkedReminder),
-                      child: Text(
-                        pausedToday(linkedReminder)
-                            ? '今天暂停'
-                            : isOn(linkedReminder['active'])
-                            ? '提醒设置'
-                            : '提醒已暂停',
-                      ),
+                  TextButton(
+                    onPressed: () => editReminder(reminder),
+                    child: Text(
+                      pausedToday(reminder)
+                          ? '今天暂停'
+                          : isOn(reminder['active'])
+                          ? '提醒设置'
+                          : '提醒已暂停',
                     ),
+                  ),
                 ],
               ),
               if (vehicleError != null)
@@ -940,7 +791,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               label: const Text('编辑规则'),
             ),
             const Spacer(),
-            if (id == selectedId)
+            if (id == favoriteId)
               const Text('首页常用', style: TextStyle(color: green, fontSize: 12)),
             PopupMenuButton<String>(
               key: ValueKey('reminder-more-$id'),
@@ -950,7 +801,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 if (action == 'ride') {
                   openDetail(r);
                 } else if (action == 'home') {
-                  choose(r);
+                  choose(r, saveFavorite: true);
                 } else {
                   changeReminder(r, action);
                 }
