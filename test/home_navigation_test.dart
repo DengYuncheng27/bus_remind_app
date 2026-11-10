@@ -43,11 +43,17 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('choose-route-2')));
       await tester.pumpAndSettle();
       expect(find.text('北海北门 上车'), findsOneWidget);
-      expect(api.homePreferences['preview@example.com'], '2');
+      expect(api.homePreferences['preview@example.com'], isNull);
       await tester.tap(find.byKey(const ValueKey('tab-reminders')));
       await tester.pumpAndSettle();
       expect(find.text('107 路 · 宝钞胡同'), findsOneWidget);
       expect(find.text('107 路 · 北海北门'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const ValueKey('reminder-more-2')));
+      await tester.tap(find.byKey(const ValueKey('reminder-more-2')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('设为首页常用'));
+      await tester.pumpAndSettle();
+      expect(api.homePreferences['preview@example.com'], '2');
       await tester.tap(find.byKey(const ValueKey('tab-profile')));
       await tester.pumpAndSettle();
       expect(find.text('我的账号'), findsOneWidget);
