@@ -7,6 +7,8 @@ import 'api.dart';
 import 'demo.dart';
 import 'browser_mode.dart' if (dart.library.js_interop) 'browser_mode_web.dart';
 import 'screens.dart';
+import 'app_updates.dart';
+import 'screens/update_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +45,7 @@ class _CommuteAppState extends State<CommuteApp> {
       if (mounted) setState(() => signedIn = false);
     };
     restore();
+    if (supportsAppUpdates && !widget.api.demo) AppUpdates.instance.check();
   }
 
   Future<void> restore() async {
@@ -71,6 +74,9 @@ class _CommuteAppState extends State<CommuteApp> {
     localizationsDelegates: GlobalMaterialLocalizations.delegates,
     debugShowCheckedModeBanner: false,
     theme: commuteTheme(),
+    builder: (context, child) => supportsAppUpdates && !widget.api.demo
+        ? UpdateNotice(child: child!)
+        : child!,
     // A home-screen web app has no browser page to return to. Let nested
     // routes pop normally, but never ask WebKit to exit the root document.
     home: PopScope(

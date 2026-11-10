@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../palette.dart';
 import '../ui.dart';
+import '../app_updates.dart';
+import 'update_screen.dart';
 
 import 'package:permission_handler/permission_handler.dart';
 
@@ -257,7 +259,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const Divider(height: 32),
-        const Text('下班王 0.3.1', style: TextStyle(fontWeight: FontWeight.w700)),
+        if (supportsAppUpdates)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.system_update_outlined, color: green),
+            title: const Text('检查更新'),
+            subtitle: ListenableBuilder(
+              listenable: AppUpdates.instance,
+              builder: (context, _) => Text(AppUpdates.instance.versionLabel),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(builder: (_) => const UpdateScreen()),
+            ),
+          )
+        else
+          const Text('下班王', style: TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
         const Text(
           '所有提醒时段均按北京时间执行。\n车辆位置与预计到达时间来自公交数据服务。',

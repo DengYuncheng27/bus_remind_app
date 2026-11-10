@@ -44,6 +44,29 @@ def check_upgrade(current, previous):
         raise ValueError('Both version and versionCode must increase; do not replace published APKs')
 
 
+def validate_patch_files(files):
+    """Only patch a released base whose native dependencies and assets are unchanged."""
+    blocked = [name for name in files if name.startswith(('android/', 'assets/')) or
+               name in ('pubspec.yaml', 'pubspec.lock', 'shorebird.yaml')]
+    if blocked:
+        raise ValueError('Publish a full APK for native/dependency/asset changes: ' + ', '.join(blocked))
+
+
+def check_patch(release_version):
+    if not re.fullmatch(r'\d+\.\d+\.\d+\+[1-9]\d*', release_version or ''):
+        raise ValueError('Use an explicit release version, e.g. 0.3.7+10; never latest')
+    tag = 'v' + release_version.split('+')[0]
+    info = version_info((ROOT / 'pubspec.yaml').read_text(encoding='utf-8'), tag)
+    if f'{info["version"]}+{info["versionCode"]}' != release_version:
+        raise ValueError('Patch source must keep the base version and build number')
+    base_spec = run('git', '-C', str(ROOT), 'show', f'{tag}:pubspec.yaml')
+    if version_info(base_spec, tag) != info:
+        raise ValueError('The target tag does not match the base release')
+    run('git', '-C', str(ROOT), 'merge-base', '--is-ancestor', tag, 'HEAD')
+    files = run('git', '-C', str(ROOT), 'diff', '--name-only', tag, 'HEAD').splitlines()
+    validate_patch_files(files)
+
+
 def sdk_tool(name, build_tools):
     suffix = ('.bat' if name == 'apksigner' else '.exe') if os.name == 'nt' else ''
     return str(Path(build_tools) / (name + suffix))
@@ -60,6 +83,9 @@ def package_release(info, apk, build_tools, output):
     signer = (ROOT / 'tool/android-signing.sha256').read_text().strip()
     with zipfile.ZipFile(apk) as archive:
         validate_apk(info, badging, certificates, signer, archive.namelist())
+        config = archive.read('assets/flutter_assets/shorebird.yaml').decode('utf-8')
+        if config != (ROOT / 'shorebird.yaml').read_text(encoding='utf-8'):
+            raise ValueError('APK Shorebird configuration does not match this release')
     output.mkdir(parents=True, exist_ok=True)
     target = output / ASSET
     shutil.copyfile(apk, target)
@@ -75,13 +101,17 @@ def package_release(info, apk, build_tools, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['version', 'package', 'check-upgrade'])
-    parser.add_argument('--tag', required=True)
+    parser.add_argument('command', choices=['version', 'package', 'check-upgrade', 'patch'])
+    parser.add_argument('--tag')
+    parser.add_argument('--release-version')
     parser.add_argument('--apk', type=Path, default=ROOT / 'build/app/outputs/flutter-apk/app-release.apk')
     parser.add_argument('--build-tools', type=Path)
     parser.add_argument('--output', type=Path, default=ROOT / 'build/release')
     parser.add_argument('--previous', type=Path)
     args = parser.parse_args()
+    if args.command == 'patch':
+        check_patch(args.release_version)
+        return
     info = version_info((ROOT / 'pubspec.yaml').read_text(encoding='utf-8'), args.tag)
     if args.command == 'version':
         print(json.dumps(info))

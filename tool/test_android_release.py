@@ -1,9 +1,16 @@
 import unittest
 
-from android_release import check_upgrade, validate_apk, version_info
+from android_release import check_upgrade, validate_apk, validate_patch_files, version_info
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_patch_rejects_native_assets_dependencies_and_version_changes(self):
+        validate_patch_files(['lib/screens/home_screen.dart', 'test/app_updates_test.dart'])
+        for path in ['android/app/build.gradle.kts', 'assets/icon.png',
+                     'pubspec.yaml', 'pubspec.lock', 'shorebird.yaml']:
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                validate_patch_files([path])
+
     def setUp(self):
         self.info = version_info('name: xiabanwang\nversion: 0.3.2+5\n', 'v0.3.2')
         self.badging = "package: name='space.su7.xiabanwang' versionCode='5' versionName='0.3.2'\n"
