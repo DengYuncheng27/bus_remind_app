@@ -78,6 +78,8 @@ void main() {
       expect(api.reminders.last['schedule_mode'], 'custom');
       expect(api.reminders.last['schedule_weekdays_mask'], 31);
       expect(api.reminders.last['window_start'], '17:30');
+      expect(api.reminders.last['max_notifications_per_bus'], 1);
+      expect(api.reminders.last['repeat_interval_minutes'], 2);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },

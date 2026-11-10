@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiabanwang/api.dart';
 import 'package:xiabanwang/demo.dart';
@@ -86,14 +87,25 @@ void main() {
     await tester.tap(find.text('17:30'));
     await tester.pumpAndSettle();
     expect(find.text('开始时间'), findsOneWidget);
-    await tester.enterText(find.byKey(const ValueKey('time-hour')), '23');
-    await tester.enterText(find.byKey(const ValueKey('time-minute')), '5');
+    tester
+        .widget<CupertinoPicker>(find.byKey(const ValueKey('time-hour')))
+        .scrollController!
+        .jumpToItem(23);
+    tester
+        .widget<CupertinoPicker>(find.byKey(const ValueKey('time-minute')))
+        .scrollController!
+        .jumpToItem(5);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('18:30'));
     await tester.pumpAndSettle();
     expect(find.text('结束时间'), findsOneWidget);
-    await tester.enterText(find.byKey(const ValueKey('time-hour')), '0');
+    tester
+        .widget<CupertinoPicker>(find.byKey(const ValueKey('time-hour')))
+        .scrollController!
+        .jumpToItem(0);
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ChoiceChip, '45'));
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();

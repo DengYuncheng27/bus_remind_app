@@ -180,6 +180,8 @@ class DemoApi extends Api {
           'stop-3': '鼓楼',
         }[body['targetStopId']],
         'stations_before': body['stationsBefore'],
+        'repeat_interval_minutes': body['repeatIntervalMinutes'] ?? 2,
+        'max_notifications_per_bus': body['maxNotificationsPerBus'] ?? 1,
         'active': 1,
         'window_start': body['windowStart'],
         'window_end': body['windowEnd'],
@@ -218,6 +220,8 @@ class DemoApi extends Api {
       if (body?['active'] == true) reminder['paused_until'] = null;
       for (final entry in {
         'stationsBefore': 'stations_before',
+        'repeatIntervalMinutes': 'repeat_interval_minutes',
+        'maxNotificationsPerBus': 'max_notifications_per_bus',
         'windowStart': 'window_start',
         'windowEnd': 'window_end',
       }.entries) {
