@@ -19,6 +19,10 @@ class ApiException implements Exception {
 }
 
 class Api {
+  static const defaultBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://bus.su7.space',
+  );
   final String baseUrl;
   final http.Client client;
   final FlutterSecureStorage storage;
@@ -26,12 +30,7 @@ class Api {
   VoidCallback? onUnauthorized;
   bool get demo => false;
   Api({String? baseUrl, http.Client? client, FlutterSecureStorage? storage})
-    : baseUrl =
-          baseUrl ??
-          const String.fromEnvironment(
-            'API_BASE_URL',
-            defaultValue: 'https://bus.su7.space',
-          ),
+    : baseUrl = baseUrl ?? defaultBaseUrl,
       client = client ?? http.Client(),
       storage = storage ?? const FlutterSecureStorage();
 

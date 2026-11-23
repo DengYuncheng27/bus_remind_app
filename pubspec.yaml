@@ -27,4 +27,10 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/app-icon.png
+    - assets/fonts/OFL.txt
     - shorebird.yaml
+  fonts:
+    # Noto Sans SC Regular, subset to the Chinese UI copy for slow mobile networks.
+    - family: Commute UI SC
+      fonts:
+        - asset: assets/fonts/CommuteUI-SC.ttf

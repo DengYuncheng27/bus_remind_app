@@ -565,6 +565,7 @@ class _BusMapState extends State<BusMap> {
       );
     }
     final missing = locations.where((location) => location == null).length;
+    final stopPoints = widget.stops.map(coordinates).nonNulls.toList();
     final attempt = tileAttempt;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -588,6 +589,20 @@ class _BusMapState extends State<BusMap> {
                     onMapReady: () => ready = true,
                   ),
                   children: [
+                    // Opaque tiles cover the stop diagram as each one arrives.
+                    if (stopPoints.length > 1)
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: stopPoints,
+                            strokeWidth: 3,
+                            color: const Color(0xFF81A696),
+                            pattern: StrokePattern.dashed(
+                              segments: const [6, 5],
+                            ),
+                          ),
+                        ],
+                      ),
                     if (widget.loadTiles)
                       BusMapTiles(
                         key: ValueKey(tileAttempt),
@@ -720,8 +735,11 @@ class _BusMapState extends State<BusMap> {
         if (tileFailed)
           Row(
             children: [
-              const Expanded(
-                child: Text('底图加载失败，车辆信息仍可查看', style: TextStyle(fontSize: 12)),
+              Expanded(
+                child: Text(
+                  stopPoints.length > 1 ? '底图未加载，虚线表示站点顺序' : '底图加载失败，车辆信息仍可查看',
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
               TextButton(
                 onPressed: () => setState(() {
