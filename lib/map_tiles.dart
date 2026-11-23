@@ -4,10 +4,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/retry.dart';
 
-String mapTileUrlTemplate({bool isWeb = kIsWeb, Uri? pageUri}) => isWeb
-    ? '${(pageUri ?? Uri.base).origin}/api/map-tiles/{z}/{x}/{y}.png?v=1'
-    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+import 'api.dart';
+
+String mapTileUrlTemplate({bool isWeb = kIsWeb, Uri? pageUri}) {
+  final origin = isWeb
+      ? (pageUri ?? Uri.base).origin
+      : Uri.parse(Api.defaultBaseUrl).origin;
+  return '$origin/api/map-tiles/{z}/{x}/{y}.png?v=1';
+}
 
 // Bound the entire transfer, including a response whose headers arrive but
 // whose body stalls. A timeout must be an error, not a silent transparent tile.
@@ -18,6 +24,15 @@ class MapTileClient extends http.BaseClient {
     http.Client? inner,
     this.timeout = const Duration(seconds: 12),
   }) : _inner = inner ?? http.Client();
+
+  static http.Client retrying({http.Client? inner}) => RetryClient(
+    MapTileClient(inner: inner),
+    retries: 1,
+    when: (response) => const {502, 503, 504}.contains(response.statusCode),
+    whenError: (error, _) =>
+        error is TimeoutException || error is http.ClientException,
+    delay: (_) => const Duration(seconds: 2),
+  );
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -58,8 +73,8 @@ class MapTileClient extends http.BaseClient {
 }
 
 class BusMapTileProvider extends NetworkTileProvider {
-  final MapTileClient _client;
-  BusMapTileProvider() : this._(MapTileClient());
+  final http.Client _client;
+  BusMapTileProvider() : this._(MapTileClient.retrying());
   BusMapTileProvider._(this._client)
     : super(httpClient: _client, attemptDecodeOfHttpErrorResponses: false);
 
@@ -88,6 +103,7 @@ class _BusMapTilesState extends State<BusMapTiles> {
     userAgentPackageName: 'space.su7.xiabanwang',
     panBuffer: 0,
     maxNativeZoom: 19,
+    evictErrorTileStrategy: EvictErrorTileStrategy.dispose,
     errorTileCallback: (_, _, _) => widget.onError(),
   );
 }

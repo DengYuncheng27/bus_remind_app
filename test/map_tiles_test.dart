@@ -23,7 +23,7 @@ void main() {
     );
     expect(
       mapTileUrlTemplate(isWeb: false),
-      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      'https://bus.su7.space/api/map-tiles/{z}/{x}/{y}.png?v=1',
     );
   });
 
@@ -68,6 +68,38 @@ void main() {
       throwsA(isA<TimeoutException>()),
     );
     await aborted.future;
+  });
+
+  test('a transient tile failure recovers without resetting the map', () async {
+    var attempts = 0;
+    final client = MapTileClient.retrying(
+      inner: MockClient((_) async {
+        attempts++;
+        return attempts == 1
+            ? http.Response('temporarily busy', 503)
+            : http.Response.bytes([1, 2, 3], 200);
+      }),
+    );
+    addTearDown(client.close);
+    final response = await client.get(Uri.parse('https://example.com/tile'));
+    expect(response.bodyBytes, [1, 2, 3]);
+    expect(attempts, 2);
+  });
+
+  test('permanent tile errors are surfaced without retrying', () async {
+    var attempts = 0;
+    final client = MapTileClient.retrying(
+      inner: MockClient((_) async {
+        attempts++;
+        return http.Response('', 404);
+      }),
+    );
+    addTearDown(client.close);
+    expect(
+      (await client.get(Uri.parse('https://example.com/tile'))).statusCode,
+      404,
+    );
+    expect(attempts, 1);
   });
 
   test('successful transfer retains cache metadata and bytes', () async {

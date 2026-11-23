@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'palette.dart';
 
 ThemeData commuteTheme() => ThemeData(
   useMaterial3: true,
+  fontFamilyFallback: kIsWeb ? const ['Commute UI SC'] : null,
   scaffoldBackgroundColor: paper,
   colorScheme: ColorScheme.fromSeed(
     seedColor: green,

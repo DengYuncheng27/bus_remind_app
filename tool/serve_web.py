@@ -104,13 +104,6 @@ if ('serviceWorker' in navigator) {
 </script>'''
             self.send_text(html.replace('<body>', '<body>' + cleanup), 'text/html')
             return
-        if path.endswith('/flutter_bootstrap.js'):
-            bootstrap = (BUILD / 'flutter_bootstrap.js').read_text(encoding='utf-8')
-            # The preview needs no offline worker. Keep the generated loader
-            # and build config, changing only its final startup invocation.
-            bootstrap = bootstrap.rsplit('_flutter.loader.load(', 1)[0] + '_flutter.loader.load();\n'
-            self.send_text(bootstrap, 'text/javascript')
-            return
         if self.command == 'HEAD':
             super().do_HEAD()
         else:

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -17,6 +17,7 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="下班王 · 公交到站提醒">
 
@@ -33,18 +34,48 @@
 
   <title>下班王</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="preload" href="main.dart.js" as="script">
+  <style>
+    #startup { position: fixed; inset: 0; z-index: 1; display: grid; place-content: center;
+      justify-items: center; padding: 24px; background: #f7f8f2; color: #18332a;
+      text-align: center; font: 16px/1.5 system-ui, sans-serif; }
+    #startup img { border-radius: 16px; }
+    #startup h1 { margin: 14px 0 0; font-size: 24px; }
+    #startup p { margin: 6px 0 16px; color: #53655c; }
+    #startup button { min-height: 44px; padding: 8px 20px; border: 0; border-radius: 10px;
+      background: #176b49; color: white; font: inherit; }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
-  <script src="navigation.js?v=1"></script>
-  <script src="web-push.js"></script>
-  <script src="flutter_bootstrap.js" async></script>
+  <main id="startup">
+    <img src="icons/xiabanwang-180.png?v=bell-forest-1" width="60" height="60" alt="">
+    <h1>下班王</h1>
+    <p role="status">正在打开通勤首页…</p>
+    <button type="button" hidden>重新加载</button>
+  </main>
+  <script>
+    (() => {
+      const panel = document.getElementById('startup');
+      const status = panel.querySelector('[role=status]');
+      const retry = panel.querySelector('button');
+      retry.onclick = () => location.reload();
+      function showRetry(message) {
+        status.textContent = message;
+        retry.hidden = false;
+      }
+      const slow = setTimeout(() => showRetry('加载时间较长，可以继续等待或重试。'), 12000);
+      window.addEventListener('app-startup-error', () => {
+        clearTimeout(slow);
+        showRetry('首页加载失败，请检查网络后重试。');
+      }, { once: true });
+      window.addEventListener('flutter-first-frame', () => {
+        clearTimeout(slow);
+        panel.remove();
+      }, { once: true });
+    })();
+  </script>
+  <script src="navigation.js?v=1" defer></script>
+  <script src="web-push.js" defer></script>
+  <script src="flutter_bootstrap.js" defer onerror="window.dispatchEvent(new Event('app-startup-error'))"></script>
 </body>
 </html>
