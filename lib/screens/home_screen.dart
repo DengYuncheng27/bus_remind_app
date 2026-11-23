@@ -460,7 +460,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     body: IndexedStack(
       index: tab,
       children: [
-        ridePage(),
+        TickerMode(enabled: tab == 0, child: ridePage()),
         remindersPage(),
         SettingsScreen(
           api: widget.api,

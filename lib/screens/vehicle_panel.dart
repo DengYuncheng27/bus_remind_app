@@ -7,6 +7,7 @@ import '../api.dart';
 import '../map_tiles.dart';
 import '../palette.dart';
 import '../vehicles.dart';
+import 'bus_marker_layer.dart';
 
 class VehiclePanel extends StatefulWidget {
   final Json realtime;
@@ -95,6 +96,7 @@ class _VehiclePanelState extends State<VehiclePanel> {
             loadTiles: widget.loadMapTiles,
             height: widget.compact ? 240 : 280,
             stale: stale,
+            fetchedAt: time,
             onSelect: (index) => setState(() {
               selectedId = '${buses[index]['id']}';
               focusRevision++;
@@ -131,7 +133,7 @@ class _VehiclePanelState extends State<VehiclePanel> {
             if (widget.compact)
               _CompactVehicleRow(
                 bus: buses[index],
-                number: index + 1,
+                nearest: index == 0,
                 selected: selected == index,
                 target: target,
                 stops: stops,
@@ -144,7 +146,6 @@ class _VehiclePanelState extends State<VehiclePanel> {
             else
               _VehicleRow(
                 bus: buses[index],
-                number: index + 1,
                 selected: selected == index,
                 target: target,
                 stops: stops,
@@ -183,7 +184,7 @@ class _VehiclePanelState extends State<VehiclePanel> {
             ),
           const SizedBox(height: 8),
           const Text(
-            '距离以你的上车站为终点。直线距离根据定位估算，不代表行驶里程；车辆与预计到达时间以上游更新为准。',
+            '小车根据最近定位模拟移动。距离以你的上车站为终点。直线距离根据定位估算，不代表行驶里程；车辆与预计到达时间以上游更新为准。',
             style: TextStyle(
               fontSize: 12,
               height: 1.5,
@@ -204,14 +205,14 @@ class _CompactVehicleRow extends StatelessWidget {
   final Json bus;
   final dynamic target;
   final List<Json> stops;
-  final int number;
+  final bool nearest;
   final bool selected, stale;
   final VoidCallback onTap;
   const _CompactVehicleRow({
     required this.bus,
     required this.target,
     required this.stops,
-    required this.number,
+    required this.nearest,
     required this.selected,
     required this.stale,
     required this.onTap,
@@ -219,7 +220,6 @@ class _CompactVehicleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final nearest = number == 1;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -248,12 +248,10 @@ class _CompactVehicleRow extends StatelessWidget {
                   color: selected ? green : const Color(0xFFE3E9DC),
                   shape: BoxShape.circle,
                 ),
-                child: Text(
-                  '$number',
-                  style: TextStyle(
-                    color: selected ? Colors.white : green,
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: Icon(
+                  Icons.directions_bus_rounded,
+                  size: 17,
+                  color: selected ? Colors.white : green,
                 ),
               ),
               const SizedBox(width: 12),
@@ -319,14 +317,12 @@ class _VehicleRow extends StatelessWidget {
   final Json bus;
   final dynamic target;
   final List<Json> stops;
-  final int number;
   final bool selected, stale;
   final VoidCallback onTap;
   const _VehicleRow({
     required this.bus,
     required this.target,
     required this.stops,
-    required this.number,
     required this.selected,
     required this.stale,
     required this.onTap,
@@ -359,12 +355,10 @@ class _VehicleRow extends StatelessWidget {
                   color: selected ? green : const Color(0xFFE9EDE5),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(
-                  '$number',
-                  style: TextStyle(
-                    color: selected ? Colors.white : ink,
-                    fontWeight: FontWeight.w800,
-                  ),
+                child: Icon(
+                  Icons.directions_bus_rounded,
+                  size: 19,
+                  color: selected ? Colors.white : ink,
                 ),
               ),
               const SizedBox(width: 12),
@@ -422,9 +416,10 @@ class _VehicleRow extends StatelessWidget {
 
 class BusMap extends StatefulWidget {
   final List<Json> buses, stops;
-  final dynamic target;
+  final Json? target;
   final int selected, focusRevision;
   final bool loadTiles, stale;
+  final DateTime? fetchedAt;
   final double height;
   final ValueChanged<int> onSelect;
   const BusMap({
@@ -437,6 +432,7 @@ class BusMap extends StatefulWidget {
     required this.onSelect,
     this.loadTiles = true,
     this.stale = false,
+    this.fetchedAt,
     this.height = 280,
   });
   @override
@@ -447,27 +443,64 @@ class _BusMapState extends State<BusMap> {
   final controller = MapController();
   bool ready = false, tileFailed = false;
   int tileAttempt = 0;
+  List<({LatLng point, LatLng estimate})?> locations = [];
+
+  void updateLocations() {
+    final stops = {
+      for (final stop in [...widget.stops, ?widget.target])
+        ?finiteNumber(stop['order']): ?coordinates(stop),
+    };
+    locations = [
+      for (final bus in widget.buses)
+        if (coordinates(bus) case final point?)
+          (
+            point: point,
+            estimate: widget.stale
+                ? point
+                : estimatedBusPoint(
+                    bus,
+                    point,
+                    stops[finiteNumber(bus['order'])],
+                  ),
+          )
+        else
+          null,
+    ];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    updateLocations();
+  }
+
   List<LatLng> get points => [
     ?coordinates(widget.target),
-    ...widget.buses.map(coordinates).whereType<LatLng>().take(3),
+    for (final location in locations.nonNulls.take(3)) ...[
+      location.point,
+      location.estimate,
+    ],
   ];
 
   CameraFit fit(List<LatLng> positions) => CameraFit.coordinates(
     coordinates: positions,
-    padding: const EdgeInsets.fromLTRB(50, 64, 50, 60),
+    padding: const EdgeInsets.fromLTRB(72, 78, 72, 54),
     maxZoom: 16,
   );
 
   @override
   void didUpdateWidget(covariant BusMap oldWidget) {
     super.didUpdateWidget(oldWidget);
+    updateLocations();
     // Do not reset the user's viewport on every data refresh.
     if (ready &&
         widget.focusRevision != oldWidget.focusRevision &&
         widget.selected < widget.buses.length) {
-      final point = coordinates(widget.buses[widget.selected]);
-      if (point != null) {
-        controller.fitCamera(fit([point, ?coordinates(widget.target)]));
+      final location = locations[widget.selected];
+      if (location != null) {
+        controller.fitCamera(
+          fit([location.point, location.estimate, ?coordinates(widget.target)]),
+        );
       }
     }
   }
@@ -476,6 +509,22 @@ class _BusMapState extends State<BusMap> {
   void dispose() {
     controller.dispose();
     super.dispose();
+  }
+
+  Key busKey(int index, LatLng point) {
+    final id = widget.buses[index]['id']?.toString() ?? '';
+    // The provider falls back to station order when a vehicle has no ID.
+    return id.isEmpty || id.startsWith('unknown-')
+        ? ValueKey((id, point, index))
+        : ValueKey(id);
+  }
+
+  String busLabel(Json bus) {
+    final stations = finiteNumber(bus['stationsAway']);
+    final stops = stations != null && stations > 0
+        ? '还有 ${stations.toInt()} 站'
+        : arrivalLabel(bus);
+    return "${widget.stale ? '上次位置' : etaLabel(bus)} · $stops";
   }
 
   void tileError(int attempt) {
@@ -515,7 +564,7 @@ class _BusMapState extends State<BusMap> {
         ),
       );
     }
-    final missing = widget.buses.where((b) => coordinates(b) == null).length;
+    final missing = locations.where((location) => location == null).length;
     final attempt = tileAttempt;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -587,76 +636,30 @@ class _BusMapState extends State<BusMap> {
                               ),
                             ),
                           ),
-                        // Paint the selected bus last so nearby buses cannot hide it.
-                        for (final i in [
-                          for (
-                            var index = 0;
-                            index < widget.buses.length;
-                            index++
-                          )
-                            if (index != widget.selected) index,
-                          if (widget.selected < widget.buses.length)
-                            widget.selected,
-                        ])
-                          if (coordinates(widget.buses[i]) case final point?)
-                            Marker(
-                              point: point,
-                              width: 48,
-                              height: 48,
-                              child: Tooltip(
-                                message:
-                                    '${i + 1} 号车 · ${arrivalLabel(widget.buses[i])}',
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    key: ValueKey('bus-marker-$i'),
-                                    onTap: () => widget.onSelect(i),
-                                    borderRadius: BorderRadius.circular(24),
-                                    child: Center(
-                                      child: Container(
-                                        width: 38,
-                                        height: 38,
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          color: widget.stale
-                                              ? Colors.grey.shade600
-                                              : widget.selected == i
-                                              ? green
-                                              : Colors.white,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: widget.selected == i
-                                                ? Colors.white
-                                                : green,
-                                            width: 3,
-                                          ),
-                                          boxShadow: const [
-                                            BoxShadow(
-                                              color: Color(0x26000000),
-                                              blurRadius: 5,
-                                              offset: Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Text(
-                                          '${i + 1}',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w800,
-                                            color:
-                                                widget.stale ||
-                                                    widget.selected == i
-                                                ? Colors.white
-                                                : green,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
                       ],
                     ),
+                    // Keep the selected bus and its callout above nearby buses.
+                    for (final i in [
+                      for (var index = 0; index < widget.buses.length; index++)
+                        if (index != widget.selected) index,
+                      if (widget.selected < widget.buses.length)
+                        widget.selected,
+                    ])
+                      if (locations[i] case final location?)
+                        BusMarkerLayer(
+                          key: busKey(i, location.point),
+                          point: location.point,
+                          estimatedPoint: location.estimate,
+                          fetchedAt: widget.fetchedAt,
+                          stale: widget.stale,
+                          stopped:
+                              finiteNumber(widget.buses[i]['speedKph']) == 0 ||
+                              finiteNumber(widget.buses[i]['etaSeconds']) == 0,
+                          selected: widget.selected == i,
+                          label: busLabel(widget.buses[i]),
+                          buttonKey: ValueKey('bus-marker-$i'),
+                          onTap: () => widget.onSelect(i),
+                        ),
                     Align(
                       alignment: Alignment.bottomRight,
                       child: Material(
@@ -679,24 +682,25 @@ class _BusMapState extends State<BusMap> {
                     ),
                   ],
                 ),
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      widget.stale ? '上次车辆位置' : '点击编号查看车辆',
-                      style: const TextStyle(fontSize: 12),
+                if (locations.any((location) => location != null))
+                  Positioned(
+                    bottom: 8,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        widget.stale ? '上次车辆位置' : '模拟位置 · 点车查看',
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
                   ),
-                ),
                 Positioned(
                   top: 8,
                   right: 8,

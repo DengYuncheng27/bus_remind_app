@@ -87,6 +87,35 @@ String arrivalLabel(VehicleJson bus) {
       : '${stations.toInt()} 站后到达';
 }
 
+// The provider's order identifies the stop the vehicle is approaching.
+// Without road geometry, project only a short segment towards that stop.
+const busMotionWindow = Duration(seconds: 30);
+
+LatLng interpolateBusPoint(LatLng from, LatLng to, double fraction) => LatLng(
+  from.latitude + (to.latitude - from.latitude) * fraction,
+  from.longitude + (to.longitude - from.longitude) * fraction,
+);
+
+LatLng estimatedBusPoint(VehicleJson bus, LatLng point, LatLng? nextStop) {
+  if (nextStop == null || point == nextStop) return point;
+  final eta = finiteNumber(bus['etaSeconds']);
+  final speed = finiteNumber(bus['speedKph']);
+  final targetMeters = bus['distanceSource'] == 'target-stop'
+      ? finiteNumber(bus['distanceMeters'])
+      : null;
+  final metersPerSecond = speed != null && speed >= 0
+      ? speed / 3.6
+      : eta != null && eta > 0 && targetMeters != null
+      ? targetMeters / eta
+      : 0.0;
+  if (metersPerSecond <= 0 || eta == 0) return point;
+  final gap = const Distance(calculator: Haversine()).distance(point, nextStop);
+  if (gap <= 0) return point;
+  final meters = metersPerSecond.clamp(0, 15) * busMotionWindow.inSeconds;
+  final fraction = (meters / gap).clamp(0.0, 1.0);
+  return interpolateBusPoint(point, nextStop, fraction);
+}
+
 String etaLabel(VehicleJson bus) {
   final seconds = finiteNumber(bus['etaSeconds']);
   return seconds == null || seconds < 0
