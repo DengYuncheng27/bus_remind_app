@@ -697,7 +697,8 @@ class _BusMapState extends State<BusMap> {
                     ),
                   ],
                 ),
-                if (locations.any((location) => location != null))
+                if (widget.stale &&
+                    locations.any((location) => location != null))
                   Positioned(
                     bottom: 8,
                     left: 12,
@@ -710,9 +711,9 @@ class _BusMapState extends State<BusMap> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Text(
-                        widget.stale ? '上次车辆位置' : '模拟位置 · 点车查看',
-                        style: const TextStyle(fontSize: 12),
+                      child: const Text(
+                        '上次车辆位置',
+                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
