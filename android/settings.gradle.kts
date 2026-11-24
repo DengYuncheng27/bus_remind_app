@@ -23,4 +23,14 @@ plugins {
     id("org.jetbrains.kotlin.android") version "2.4.0" apply false
 }
 
+// AGConnect uses this catalog entry to select its AGP 9 integration.
+dependencyResolutionManagement {
+    versionCatalogs {
+        create("libs") {
+            plugin("android-application", "com.android.application")
+                .version(com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION)
+        }
+    }
+}
+
 include(":app")

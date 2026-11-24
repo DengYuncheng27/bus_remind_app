@@ -2,6 +2,12 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven("https://developer.huawei.com/repo/") {
+            content { includeGroupByRegex("com[.]huawei[.].*") }
+        }
+        maven("https://developer.hihonor.com/repo/") {
+            content { includeGroup("com.hihonor.mcs") }
+        }
     }
 }
 

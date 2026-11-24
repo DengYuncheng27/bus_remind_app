@@ -35,6 +35,22 @@ flowchart LR
 
 极光开通后另设 Actions **variable** `JPUSH_APP_KEY`（AppKey 是客户端公开标识）。`JPUSH_MASTER_SECRET` 始终留在服务端。未开通时不设置 AppKey。
 
+## Android 厂商通知
+
+按已获批的品牌配置。GitHub Actions 在构建完整 APK 和后续同版本补丁时恢复下列原生配置。更改厂商集合、参数或 SDK 后需发布新的完整 APK，补丁沿用对应基础包的配置。
+
+| 厂商 | 客户端配置 |
+| --- | --- |
+| 华为 | 将 AGC 为 `space.su7.xiabanwang` 下载的 Android 客户端 `agconnect-services.json` 原文存为 Secret `HUAWEI_AGCONNECT_JSON`。本地对应 `android/app/agconnect-services.json`。 |
+| 小米 | `XIAOMI_APPID`、`XIAOMI_APPKEY` |
+| 荣耀 | `HONOR_APPID` |
+| OPPO | `OPPO_APPID`、`OPPO_APPKEY`、`OPPO_APPSECRET`，填写客户端原值，构建自动添加 `OP-`。服务端 MasterSecret 单独配置在极光。 |
+| vivo | `VIVO_APPID`、`VIVO_APPKEY` |
+
+后四家共用 Secret `ANDROID_VENDOR_PUSH_PROPERTIES`，每行一个 `字段=值`，本地对应 `android/vendor-push.properties`。仅填写拟启用品牌的完整字段。构建只为已配置品牌引入插件，其余设备沿用极光基础通道。客户端字段会进入 APK；厂商服务端凭据仅在极光控制台配置。
+
+在厂商后台启用推送并按要求登记包名和现有生产证书 SHA-256（`tool/android-signing.sha256`），在极光对应应用的「推送设置 → 集成设置」启用该品牌，核对生产权限和消息分类。真机安装正式签名的完整包并连接手机通知后，先确认极光记录的厂商 token，再锁屏从另一端触发提醒，核对实际通道、送达、展示时间及点开行为。对照没有配置厂商通道的手机验证原有推送。[极光厂商申请指南](https://docs.jiguang.cn/jpush/client/Android/android_3rd_param) · [SDK 接入说明](https://docs.jiguang.cn/jpush/client/Android/android_3rd_guide)
+
 ## 日常发版
 
 1. 合入已验证的修改，将 `pubspec.yaml` 的版本及 build number 一起递增，例如 `0.3.5+8`。

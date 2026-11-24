@@ -67,7 +67,7 @@ flutter run --dart-define=API_BASE_URL=https://bus.su7.space --dart-define=JPUSH
 - 服务端按当前登录账号绑定设备，设备标识加密保存；退出前解绑。最多 10 台设备。
 - 发送接口的 `accepted`、发送审计中的 `sent` 仅代表推送平台接受，不是手机回执。实际收达用测试通知和真机检查确认。
 - 公交消息 TTL 为 60 秒，降低旧提醒延迟抵达的风险。暂不做后台轮询或使用本地闹钟模拟实时公交通知。
-- Android 国内厂商离线推送还需配置对应厂商应用与 SDK 通道；当前只有极光基础接入，不能承诺所有手机被杀进程后仍能收到。
+- Android 支持为已开通的华为、小米、荣耀、OPPO、vivo 应用配置厂商系统推送。每个版本包含的通道取决于构建配置，见[厂商通知配置](docs/RELEASING.md#android-厂商通知)。
 - iOS 必须在 macOS/Xcode 中配置开发者团队、Provisioning Profile、Push Notifications，并在极光后台上传对应 APNs 凭据。`Runner.entitlements` 默认开发环境；发布需核对生产 APNs 签名及两端 production 参数。
 - `ios/Podfile` 配置 no-IDFA JCore 与通知权限宏。首次 iOS 构建使用 CocoaPods 路径，按 Flutter 环境需要执行 `flutter config --no-enable-swift-package-manager` 后 `flutter pub get`、`pod install`。平台插件本次尚未在 macOS 上编译验证。
 - Android 发行构建使用独立 release 签名，通过忽略的 `android/key.properties` 注入。务必备份并复用签名文件以支持覆盖升级。
@@ -121,7 +121,7 @@ Web/PWA 和 Android ARM64 release APK 已可在本机构建；Dart 分析、自�
 ## 0.2.0：可安装网页版与高级扩展
 
 - 用户主站：<https://bus.su7.space/>。iPhone 使用 Safari 添加到主屏幕，进入“我的 → 开启本机通知”，允许后发送测试。需要 iOS 16.4 或以上。
-- Android 安装包与安装说明：<https://bus.su7.space/download.html>。当前发行包为 ARM64，使用独立 release 签名。当前无极光应用凭据，原生通知尚未开通；可使用高级扩展或安装网页版接收 Web Push。
+- Android 安装包与安装说明：<https://bus.su7.space/download.html>。当前发行包为 ARM64，使用独立 release 签名。在 App 设置中可连接手机通知并发送测试，也可使用高级扩展或安装网页版接收 Web Push。
 - “我的 → 高级扩展”：支持钉钉、企业微信、飞书自建应用、Telegram、HTTPS Webhook；创建、编辑、启停、删除、测试与自定义模板。编辑凭证留空保留原值，服务器不回传密钥。
 - 提醒编辑的“接收渠道”可同时选择多个渠道；未修改接收渠道时不会覆盖原有绑定。
 - “我的 → 修改密码”更新账号密码并恢复当前会话。
