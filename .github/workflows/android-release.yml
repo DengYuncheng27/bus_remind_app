@@ -93,6 +93,14 @@ jobs:
           Path('android/key.properties').write_text(''.join(k + '=' + prop(v) + '\n' for k, v in values.items()))
           PY
       - uses: shorebirdtech/setup-shorebird@8b1059ddb56a926f0146edf4133cc647775c162f # v1
+      - name: Restore native vendor push configuration
+        env:
+          VENDOR_PROPERTIES: ${{ secrets.ANDROID_VENDOR_PUSH_PROPERTIES }}
+          HUAWEI_CONFIG: ${{ secrets.HUAWEI_AGCONNECT_JSON }}
+        run: |
+          umask 077
+          if [ -n "$VENDOR_PROPERTIES" ]; then printf '%s' "$VENDOR_PROPERTIES" > android/vendor-push.properties; fi
+          if [ -n "$HUAWEI_CONFIG" ]; then printf '%s' "$HUAWEI_CONFIG" > android/app/agconnect-services.json; fi
       - name: Publish a verified Dart patch
         if: inputs.patch_version != ''
         env:
@@ -124,7 +132,7 @@ jobs:
             --build-tools "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS"
       - name: Remove signing material
         if: always()
-        run: rm -f android/key.properties "$RUNNER_TEMP/android-release.jks"
+        run: rm -f android/key.properties "$RUNNER_TEMP/android-release.jks" android/vendor-push.properties android/app/agconnect-services.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: inputs.patch_version == ''
         with:
